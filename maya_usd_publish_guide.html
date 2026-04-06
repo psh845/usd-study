@@ -1,0 +1,690 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.root{padding:16px 0;font-family:var(--font-sans)}
+.tabs{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
+.tab{padding:7px 16px;border-radius:20px;cursor:pointer;font-size:12px;font-weight:500;
+  border:1px solid var(--color-border-secondary);color:var(--color-text-secondary);
+  background:var(--color-background-secondary);transition:all .15s}
+.tab.active{background:#E1F5EE;color:#0F6E56;border-color:#5DCAA5}
+.tab:hover:not(.active){border-color:var(--color-border-primary);color:var(--color-text-primary)}
+.panel{display:none}.panel.active{display:block}
+
+/* flow steps */
+.step-list{display:flex;flex-direction:column;gap:0}
+.step{display:flex;gap:0;position:relative}
+.step-left{display:flex;flex-direction:column;align-items:center;width:36px;flex-shrink:0}
+.step-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:500;flex-shrink:0;z-index:1}
+.step-line{width:2px;background:var(--color-border-tertiary);flex:1;min-height:8px}
+.step:last-child .step-line{display:none}
+.step-body{flex:1;padding-bottom:16px;padding-top:2px}
+.step-title{font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:4px}
+.step-desc{font-size:12px;color:var(--color-text-secondary);line-height:1.6;margin-bottom:8px}
+.s-teal .step-num{background:#E1F5EE;color:#0F6E56}
+.s-purple .step-num{background:#EEEDFE;color:#534AB7}
+.s-amber .step-num{background:#FAEEDA;color:#854F0B}
+.s-coral .step-num{background:#FAECE7;color:#993C1D}
+.s-blue .step-num{background:#E6F1FB;color:#185FA5}
+.s-green .step-num{background:#EAF3DE;color:#3B6D11}
+
+/* code blocks */
+.code-wrap{position:relative;margin-top:4px}
+.code-block{background:var(--color-background-tertiary);border-radius:8px;
+  padding:12px 14px;font-family:var(--font-mono);font-size:11.5px;
+  color:var(--color-text-primary);line-height:1.75;overflow-x:auto;white-space:pre;
+  border:1px solid var(--color-border-tertiary)}
+.copy-btn{position:absolute;top:8px;right:8px;padding:3px 10px;border-radius:6px;
+  font-size:10px;font-weight:500;cursor:pointer;border:1px solid var(--color-border-secondary);
+  background:var(--color-background-secondary);color:var(--color-text-secondary);transition:all .15s}
+.copy-btn:hover{border-color:var(--color-border-primary);color:var(--color-text-primary)}
+.copy-btn.done{background:#E1F5EE;color:#0F6E56;border-color:#5DCAA5}
+
+/* maya api table */
+.api-group{margin-bottom:20px}
+.group-title{font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--color-text-tertiary);margin-bottom:8px}
+.api-row{display:grid;grid-template-columns:1fr 1fr;gap:0;
+  border:1px solid var(--color-border-tertiary);border-radius:8px;overflow:hidden;margin-bottom:6px}
+.api-row:hover{border-color:var(--color-border-secondary)}
+.api-fn{padding:9px 12px;background:var(--color-background-secondary);
+  font-family:var(--font-mono);font-size:11.5px;color:#185FA5;font-weight:500;border-right:1px solid var(--color-border-tertiary)}
+.api-desc{padding:9px 12px;font-size:12px;color:var(--color-text-secondary);line-height:1.5}
+.api-note{font-size:10px;color:var(--color-text-tertiary);margin-top:2px}
+.expand-btn{width:100%;text-align:left;cursor:pointer;background:none;border:none;
+  display:flex;align-items:center;gap:6px;padding:4px 0 8px;font-size:11px;color:var(--color-text-tertiary)}
+.expand-btn:hover{color:var(--color-text-secondary)}
+.expand-content{display:none}.expand-content.open{display:block}
+
+/* perf section */
+.perf-card{border:1px solid var(--color-border-tertiary);border-radius:10px;margin-bottom:12px;overflow:hidden}
+.perf-header{padding:10px 14px;background:var(--color-background-secondary);
+  font-size:12px;font-weight:500;color:var(--color-text-primary);
+  display:flex;align-items:center;gap:8px}
+.badge{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:500}
+.badge-fast{background:#E1F5EE;color:#0F6E56}
+.badge-slow{background:#FAECE7;color:#993C1D}
+.perf-body{padding:12px 14px}
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.compare-side{border-radius:6px;overflow:hidden}
+.compare-label{font-size:10px;font-weight:500;padding:4px 10px}
+.label-bad{background:#FAECE7;color:#993C1D}
+.label-good{background:#E1F5EE;color:#0F6E56}
+
+/* syntax highlight */
+.kw{color:#7F77DD}.cm{color:#888780;font-style:italic}.st{color:#0F6E56}.fn2{color:#185FA5}
+</style>
+
+<div class="root">
+<div class="tabs" id="tabs"></div>
+<div id="panels"></div>
+</div>
+
+<script>
+function mkCode(raw){
+  return raw
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/(#[^\n]*)/g,'<span class="cm">$1</span>')
+    .replace(/\b(from|import|as|def|class|with|if|else|elif|for|in|return|True|False|None|not|and|or|pass|raise|try|except|finally)\b/g,'<span class="kw">$1</span>')
+    .replace(/("""[\s\S]*?""")/g,'<span class="st">$1</span>')
+    .replace(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g,'<span class="st">$1</span>')
+}
+function codeWrap(code,id){
+  return `<div class="code-wrap">
+    <div class="code-block">${mkCode(code)}</div>
+    <button class="copy-btn" onclick="copyCode(this,'${id}')">copy</button>
+  </div>`
+}
+const rawCodes={}
+function copyCode(btn,id){
+  navigator.clipboard.writeText(rawCodes[id]||'').then(()=>{
+    btn.textContent='copied!'
+    btn.classList.add('done')
+    setTimeout(()=>{btn.textContent='copy';btn.classList.remove('done')},1500)
+  })
+}
+
+const publishFlow = [
+  {
+    color:'s-teal', num:'01', title:'사전 검증 (Pre-flight)',
+    desc:'Maya scene이 퍼블리시 가능한 상태인지 체크합니다. 네이밍, 필수 메쉬 존재 여부, 히스토리 등을 검증합니다.',
+    codeId:'c1',
+    code:`import maya.cmds as cmds
+from pxr import Usd, UsdGeom
+
+def preflight_check(root_node: str) -> list[str]:
+    errors = []
+
+    # 네이밍 규칙 (영문·숫자·언더스코어만 허용)
+    import re
+    all_nodes = cmds.listRelatives(root_node, allDescendents=True, fullPath=True) or []
+    for node in all_nodes:
+        short = node.split("|")[-1]
+        if not re.match(r'^[A-Za-z0-9_]+$', short):
+            errors.append(f"[NAMING] 잘못된 이름: {short}")
+
+    # 게오메트리가 하나 이상 존재하는지
+    meshes = cmds.listRelatives(root_node, allDescendents=True, type="mesh") or []
+    if not meshes:
+        errors.append("[GEO] geometry가 없습니다")
+
+    # 인스턴스화되지 않은 히스토리 체크
+    for mesh in meshes:
+        if cmds.listHistory(mesh, pruneDagObjects=True):
+            errors.append(f"[HISTORY] 히스토리 존재: {mesh}")
+
+    return errors
+
+# --- 실행 ---
+errs = preflight_check("|World|Hero")
+if errs:
+    for e in errs:
+        print(e)
+    raise RuntimeError("Preflight 실패: 위 오류를 수정하세요")`
+  },
+  {
+    color:'s-purple', num:'02', title:'Maya → USD Export (mayaUsd)',
+    desc:'mayaUsd.lib 또는 cmds.mayaUSDExport 를 사용해 선택 노드를 USD로 내보냅니다.',
+    codeId:'c2',
+    code:`import maya.cmds as cmds
+import mayaUsd.lib as mayaUsdLib
+
+def export_to_usd(
+    root_node: str,
+    output_path: str,
+    start_frame: int = 1,
+    end_frame: int   = 1,
+    export_anim: bool = False,
+) -> str:
+    """Maya 노드를 USD 파일로 내보냅니다."""
+
+    # 내보낼 노드 선택
+    cmds.select(root_node, replace=True)
+
+    export_options = dict(
+        file                     = output_path,
+        selection                = True,
+
+        # 계층 구조
+        defaultUSDFormat         = "usdc",       # 바이너리 (usda = ASCII)
+        rootPrimType             = "Xform",
+        defaultPrim              = root_node.split("|")[-1],
+
+        # 지오메트리
+        exportDisplayColor       = True,
+        exportColorSets          = True,
+        exportUVs                = True,
+        exportNormals            = True,
+        exportSkin               = False,         # 스키닝은 별도 처리
+        exportBlendShapes        = False,
+
+        # 머터리얼
+        exportMaterialCollections= True,
+        materialsScopeName       = "mtl",        # /Asset/mtl/ 에 머터리얼 배치
+        shadingMode              = "useRegistry", # Arnold/RenderMan 자동 감지
+
+        # 애니메이션
+        exportAnimation          = export_anim,
+        startTime                = start_frame,
+        endTime                  = end_frame,
+        frameStride              = 1.0,
+        staticSingleSample       = not export_anim,
+
+        # 기타
+        mergeTransformAndShape   = True,
+        stripNamespaces          = True,
+    )
+
+    # mayaUSDExport MEL 커맨드로 실행
+    cmds.mayaUSDExport(**export_options)
+    print(f"[EXPORT] {output_path}")
+    return output_path`
+  },
+  {
+    color:'s-amber', num:'03', title:'USD 후처리 (Post-process)',
+    desc:'Export된 USD 파일을 열어 메타데이터, Kind, Purpose, AssetInfo 등을 설정합니다.',
+    codeId:'c3',
+    code:`from pxr import Usd, UsdGeom, Kind, Sdf
+import datetime
+
+def post_process(
+    usd_path: str,
+    asset_name: str,
+    version: str,
+):
+    stage = Usd.Stage.Open(usd_path)
+    root_prim = stage.GetDefaultPrim()
+
+    # --- Kind 설정 (파이프라인 탐색용) ---
+    Usd.ModelAPI(root_prim).SetKind(Kind.Tokens.component)
+
+    # --- AssetInfo 기록 ---
+    root_prim.SetAssetInfoByKey("name",       asset_name)
+    root_prim.SetAssetInfoByKey("version",    version)
+    root_prim.SetAssetInfoByKey("identifier", Sdf.AssetPath(usd_path))
+
+    # --- 퍼블리시 메타데이터 ---
+    root_prim.SetMetadata("comment",
+        f"Published: {datetime.datetime.now():%Y-%m-%d %H:%M} | ver={version}"
+    )
+
+    # --- Purpose 설정 (render / proxy 분리) ---
+    for prim in stage.Traverse():
+        if not prim.IsA(UsdGeom.Gprim):
+            continue
+        name = prim.GetName().lower()
+        img  = UsdGeom.Imageable(prim)
+        if "_proxy" in name or "_low" in name:
+            img.CreatePurposeAttr(UsdGeom.Tokens.proxy)
+        elif "_guide" in name:
+            img.CreatePurposeAttr(UsdGeom.Tokens.guide)
+        else:
+            img.CreatePurposeAttr(UsdGeom.Tokens.render)
+
+    # --- 프레임 범위 재확인 ---
+    stage.SetFramesPerSecond(24)
+
+    stage.Save()
+    print(f"[POST] 후처리 완료: {usd_path}")`
+  },
+  {
+    color:'s-coral', num:'04', title:'레이어 구조 조립',
+    desc:'payload / sublayer 방식으로 geo·look·anim 레이어를 분리된 파일로 조립합니다.',
+    codeId:'c4',
+    code:`from pxr import Usd, Sdf
+
+def assemble_layers(
+    publish_dir: str,
+    asset_name:  str,
+    version:     str,
+):
+    """
+    결과 파일 구조:
+      publish/v003/
+        hero_v003.usda          ← 진입점 (이 파일만 reference)
+        payload/hero_geo.usdc   ← geometry (payload)
+        payload/hero_look.usdc  ← material / shading
+    """
+    import os
+    ver_dir     = os.path.join(publish_dir, version)
+    payload_dir = os.path.join(ver_dir, "payload")
+    os.makedirs(payload_dir, exist_ok=True)
+
+    top_path  = os.path.join(ver_dir,     f"{asset_name}_{version}.usda")
+    geo_path  = os.path.join(payload_dir, f"{asset_name}_geo.usdc")
+    look_path = os.path.join(payload_dir, f"{asset_name}_look.usdc")
+
+    # 1) 진입점 Stage 생성
+    top_stage = Usd.Stage.CreateNew(top_path)
+    root = top_stage.DefinePrim(f"/{asset_name}", "Xform")
+    top_stage.SetDefaultPrim(root)
+
+    # 2) geo를 Payload로 붙임 (필요할 때만 로드)
+    root.GetPayloads().AddPayload(
+        Sdf.AssetPath(f"./payload/{asset_name}_geo.usdc")
+    )
+
+    # 3) look을 Sublayer로 오버레이 (항상 로드)
+    top_stage.GetRootLayer().subLayerPaths.append(
+        f"./payload/{asset_name}_look.usdc"
+    )
+
+    top_stage.SetStartTimeCode(1)
+    top_stage.SetEndTimeCode(120)
+    top_stage.SetFramesPerSecond(24)
+    top_stage.Save()
+
+    print(f"[ASSEMBLE] 조립 완료: {top_path}")
+    return top_path`
+  },
+  {
+    color:'s-blue', num:'05', title:'Variant Set 생성 (LOD)',
+    desc:'퍼블리시 단계에서 LOD Variant를 USD 내에 직접 작성합니다.',
+    codeId:'c5',
+    code:`from pxr import Usd, UsdGeom, Vt, Gf, Sdf
+
+def build_lod_variants(stage: Usd.Stage, mesh_prim_path: str):
+    mesh_prim = stage.GetPrimAtPath(mesh_prim_path)
+    if not mesh_prim.IsValid():
+        raise ValueError(f"Prim 없음: {mesh_prim_path}")
+
+    vsets = mesh_prim.GetVariantSets()
+    lod   = vsets.AddVariantSet("LOD")
+
+    lod_data = {
+        "high": high_res_points,   # Vt.Vec3fArray (실제 데이터)
+        "mid":  mid_res_points,
+        "low":  low_res_points,
+    }
+
+    for lod_name, pts in lod_data.items():
+        lod.AddVariant(lod_name)
+        lod.SetVariantSelection(lod_name)
+
+        with lod.GetVariantEditContext():
+            mesh = UsdGeom.Mesh(mesh_prim)
+            mesh.CreatePointsAttr(pts)
+
+    # 기본값은 high
+    lod.SetVariantSelection("high")
+    stage.Save()
+    print("[VARIANT] LOD Variant 생성 완료")`
+  },
+  {
+    color:'s-green', num:'06', title:'퍼블리시 진입점 (통합 실행)',
+    desc:'위 단계를 순서대로 호출하는 메인 함수입니다. 에러 발생 시 중단하고 로그를 남깁니다.',
+    codeId:'c6',
+    code:`def publish(
+    root_node:    str,
+    asset_name:   str,
+    version:      str,
+    publish_root: str,
+    start_frame:  int = 1,
+    end_frame:    int = 1,
+    export_anim:  bool = False,
+):
+    import os, traceback
+
+    print(f"\\n{'='*50}")
+    print(f"  PUBLISH START  |  {asset_name}  |  {version}")
+    print(f"{'='*50}")
+
+    try:
+        # 1. Pre-flight
+        errs = preflight_check(root_node)
+        if errs:
+            raise RuntimeError("\\n".join(errs))
+        print("[1/4] Pre-flight OK")
+
+        # 2. Export
+        ver_dir    = os.path.join(publish_root, version, "payload")
+        os.makedirs(ver_dir, exist_ok=True)
+        geo_path   = os.path.join(ver_dir, f"{asset_name}_geo.usdc")
+        export_to_usd(root_node, geo_path, start_frame, end_frame, export_anim)
+        print("[2/4] Export OK")
+
+        # 3. Post-process
+        post_process(geo_path, asset_name, version)
+        print("[3/4] Post-process OK")
+
+        # 4. Assemble
+        top_path = assemble_layers(publish_root, asset_name, version)
+        print("[4/4] Assemble OK")
+
+        print(f"\\n  PUBLISH DONE  =>  {top_path}\\n")
+        return top_path
+
+    except Exception as e:
+        print(f"\\n[ERROR] 퍼블리시 실패:\\n{traceback.format_exc()}")
+        raise
+
+# --- 실행 예시 ---
+publish(
+    root_node    = "|World|Hero",
+    asset_name   = "Hero",
+    version      = "v003",
+    publish_root = "/proj/assets/char/Hero/publish",
+    start_frame  = 1,
+    end_frame    = 120,
+    export_anim  = False,
+)`
+  },
+]
+
+const mayaApi = [
+  {
+    group:'Export / Import',
+    rows:[
+      {fn:'cmds.mayaUSDExport(**opts)', desc:'선택 노드를 USD로 내보냅니다', note:'가장 범용적인 진입점. options dict로 전달'},
+      {fn:'cmds.mayaUSDImport(**opts)', desc:'USD 파일을 Maya scene으로 가져옵니다', note:'asReference=True 로 참조 import 가능'},
+      {fn:'mayaUsd.lib.Export(opts)', desc:'Python API 방식 export (더 세밀한 제어)', note:'ExportJobContext 사용 시 callback 등록 가능'},
+      {fn:'mayaUsd.lib.Import(opts)', desc:'Python API 방식 import', note:''},
+    ]
+  },
+  {
+    group:'Stage / Proxy Shape 접근',
+    rows:[
+      {fn:'mayaUsd.ufe.getStage(dagPath)', desc:'Maya DAG 경로에서 UsdStage 반환', note:'mayaUsdProxyShape 노드에 연결된 Stage'},
+      {fn:'mayaUsd.lib.GetPrim(ufeSceneItem)', desc:'UFE SceneItem → UsdPrim 변환', note:'Maya 뷰포트 선택 → USD Prim 변환 시 사용'},
+      {fn:'mayaUsd.lib.GetMayaAttrUsdAttrType(attr)', desc:'Maya attribute의 USD 타입 추론', note:''},
+      {fn:'cmds.createNode("mayaUsdProxyShape")', desc:'씬에 USD 뷰포트 노드 생성', note:'filePath attr에 USD 경로 연결'},
+    ]
+  },
+  {
+    group:'Translator / Chaser',
+    rows:[
+      {fn:'mayaUsd.lib.registerExportChaser()', desc:'export 후 커스텀 후처리 등록', note:'UsdMayaExportChaser 서브클래스 필요'},
+      {fn:'mayaUsd.lib.registerImportChaser()', desc:'import 후 커스텀 후처리 등록', note:''},
+      {fn:'mayaUsd.lib.TranslatorBase', desc:'커스텀 타입 변환기 베이스 클래스', note:'MayaPlugin에서 서브클래스로 등록'},
+      {fn:'mayaUsd.lib.JobExportArgs', desc:'Export 옵션 전체를 담는 구조체', note:'cmds 옵션과 동일하지만 Python 객체로 접근 가능'},
+    ]
+  },
+  {
+    group:'Edit Router (편집 레이어 제어)',
+    rows:[
+      {fn:'mayaUsd.lib.registerEditRouter()', desc:'편집이 기록될 레이어를 동적으로 결정', note:'operation 별로 다른 레이어로 라우팅 가능'},
+      {fn:'mayaUsd.lib.clearEditRouter()', desc:'등록된 EditRouter 초기화', note:''},
+    ]
+  },
+  {
+    group:'유틸리티',
+    rows:[
+      {fn:'mayaUsd.lib.getMayaPathFromPrimPath()', desc:'UsdPrim 경로 → Maya DAG 경로 변환', note:'import된 prim을 Maya에서 조작할 때'},
+      {fn:'mayaUsd.lib.namespacePathTo()', desc:'USD path를 Maya namespace 경로로 변환', note:''},
+      {fn:'mayaUsd.lib.isUsdAttributeConnected()', desc:'USD attribute가 연결되어 있는지 확인', note:''},
+    ]
+  },
+]
+
+const perfSections = [
+  {
+    title:'SdfChangeBlock — 배치 편집',
+    badge:'fast',
+    desc:'Attribute를 반복해서 Set()할 때 매번 레이어 변경 알림이 발생합니다. SdfChangeBlock으로 묶으면 블록 종료 시 한 번만 알림을 보내므로 속도가 크게 향상됩니다.',
+    codeId:'p1',
+    bad:`# 느린 방식: Set() 마다 레이어 변경 이벤트 발생
+for i, prim in enumerate(prims):
+    prim.GetAttribute("size").Set(float(i))
+    # → N번 알림 발생, 느림`,
+    good:`from pxr import Sdf
+
+# 빠른 방식: 블록 종료 시 단 한 번 알림
+with Sdf.ChangeBlock():
+    for i, prim in enumerate(prims):
+        prim.GetAttribute("size").Set(float(i))
+    # → 1번 알림 발생`,
+  },
+  {
+    title:'SdfBatchNamespaceEdit — 경로 이동/삭제 배치',
+    badge:'fast',
+    desc:'Prim 경로를 변경하거나 삭제할 때 SdfBatchNamespaceEdit을 사용하면 레이어 참조 경로까지 한 번에 업데이트됩니다.',
+    codeId:'p2',
+    bad:`# 개별 이동: 느리고 참조 경로가 깨질 수 있음
+for old_path, new_path in moves:
+    edit = Sdf.NamespaceEdit.Rename(old_path, new_path)
+    layer.Apply(Sdf.BatchNamespaceEdit([edit]))`,
+    good:`from pxr import Sdf
+
+batch = Sdf.BatchNamespaceEdit()
+batch.Add(Sdf.NamespaceEdit.Rename(
+    Sdf.Path("/World/OldName"),
+    Sdf.Path("/World/NewName"),
+))
+batch.Add(Sdf.NamespaceEdit.Remove(
+    Sdf.Path("/World/Trash"),
+))
+# 한 번에 레이어에 적용
+layer.Apply(batch)`,
+  },
+  {
+    title:'UsdGeomPointInstancer — 대량 인스턴스',
+    badge:'fast',
+    desc:'동일한 Prim을 수천 개 배치할 때 개별 Prim을 만들지 않고 PointInstancer를 사용합니다. 메모리와 로드 속도 모두 획기적으로 줄어듭니다.',
+    codeId:'p3',
+    bad:`# 느린 방식: Prim 1만 개 개별 생성
+for i in range(10000):
+    p = stage.DefinePrim(f"/World/Tree_{i}", "Xform")
+    p.GetReferences().AddReference("./tree.usda")`,
+    good:`from pxr import UsdGeom, Gf, Vt
+
+instancer = UsdGeom.PointInstancer.Define(stage, "/World/Forest")
+
+# 프로토타입 등록
+proto = instancer.GetPrototypesRel()
+tree = stage.DefinePrim("/World/Forest/Protos/Tree", "Xform")
+tree.GetReferences().AddReference("./tree.usda")
+proto.AddTarget(tree.GetPath())
+
+# 1만 개 위치 지정 (단일 Attribute Set)
+instancer.CreateProtoIndicesAttr(Vt.IntArray([0]*10000))
+instancer.CreatePositionsAttr(Vt.Vec3fArray([
+    Gf.Vec3f(i*2.0, 0, 0) for i in range(10000)
+]))`,
+  },
+  {
+    title:'UsdGeomXformCache — 트랜스폼 캐시',
+    badge:'fast',
+    desc:'Traverse 중 매 Prim마다 GetLocalToWorldTransform을 호출하면 중복 계산이 생깁니다. XformCache를 공유하면 이미 계산된 조상 행렬을 재사용합니다.',
+    codeId:'p4',
+    bad:`# 느린 방식: 매번 새 XformCache 생성
+for prim in stage.Traverse():
+    cache = UsdGeom.XformCache(time)   # 매번 생성 → 느림
+    mtx = cache.GetLocalToWorldTransform(prim)`,
+    good:`from pxr import UsdGeom, Usd
+
+# XformCache 를 루프 밖에서 한 번만 생성
+time  = Usd.TimeCode.Default()
+cache = UsdGeom.XformCache(time)
+
+for prim in stage.Traverse():
+    if not prim.IsA(UsdGeom.Xformable):
+        continue
+    mtx = cache.GetLocalToWorldTransform(prim)  # 캐시 재사용`,
+  },
+  {
+    title:'UsdStage.SetEditTarget — 편집 레이어 고정',
+    badge:'fast',
+    desc:'편집 레이어를 매번 스위치하지 않고 미리 EditTarget을 고정해 두면 내부 레이어 룩업 비용이 줄어듭니다. 퍼블리시 시 payload 레이어에만 쓸 때 유용합니다.',
+    codeId:'p5',
+    bad:`# 매 반복마다 EditContext 진입 → 오버헤드
+for prim in prims:
+    with Usd.EditContext(stage, payload_layer):
+        prim.GetAttribute("points").Set(pts)`,
+    good:`from pxr import Usd
+
+# EditTarget을 한 번만 설정
+target = Usd.EditTarget(payload_layer)
+stage.SetEditTarget(target)
+
+# 이후 편집은 모두 payload_layer 에 기록됨
+with Sdf.ChangeBlock():
+    for prim in prims:
+        prim.GetAttribute("points").Set(pts)
+
+# 완료 후 루트로 복원
+stage.SetEditTarget(stage.GetRootLayer())`,
+  },
+]
+
+rawCodes['c1']=`import maya.cmds as cmds\nfrom pxr import Usd, UsdGeom\n\ndef preflight_check(root_node):\n    errors = []\n    import re\n    all_nodes = cmds.listRelatives(root_node, allDescendents=True, fullPath=True) or []\n    for node in all_nodes:\n        short = node.split("|")[-1]\n        if not re.match(r'^[A-Za-z0-9_]+$', short):\n            errors.append(f"[NAMING] 잘못된 이름: {short}")\n    meshes = cmds.listRelatives(root_node, allDescendents=True, type="mesh") or []\n    if not meshes:\n        errors.append("[GEO] geometry가 없습니다")\n    for mesh in meshes:\n        if cmds.listHistory(mesh, pruneDagObjects=True):\n            errors.append(f"[HISTORY] 히스토리 존재: {mesh}")\n    return errors`
+
+function buildFlow(){
+  const p=document.getElementById('p0')
+  publishFlow.forEach(s=>{
+    rawCodes[s.codeId]=s.code
+    p.innerHTML+=`
+      <div class="step ${s.color}">
+        <div class="step-left">
+          <div class="step-num">${s.num}</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-body">
+          <div class="step-title">${s.title}</div>
+          <div class="step-desc">${s.desc}</div>
+          ${codeWrap(s.code, s.codeId)}
+        </div>
+      </div>`
+  })
+}
+
+function buildMaya(){
+  const p=document.getElementById('p1')
+  mayaApi.forEach(g=>{
+    let html=`<div class="api-group"><div class="group-title">${g.group}</div>`
+    g.rows.forEach(r=>{
+      html+=`<div class="api-row">
+        <div class="api-fn">${r.fn}</div>
+        <div class="api-desc">${r.desc}${r.note?`<div class="api-note">${r.note}</div>`:''}</div>
+      </div>`
+    })
+    html+='</div>'
+    p.innerHTML+=html
+  })
+
+  // mayaUSDExport 옵션 전체 목록
+  p.innerHTML+=`<div class="api-group"><div class="group-title">mayaUSDExport 주요 옵션 전체 목록</div>`
+  const id='maya-opts'
+  const optCode=`cmds.mayaUSDExport(
+    file                      = "/path/out.usdc",
+    selection                 = True,   # 선택 노드만 / False = 전체 scene
+
+    # --- 포맷 ---
+    defaultUSDFormat          = "usdc", # "usda"(ASCII) or "usdc"(binary)
+    defaultPrim               = "Hero", # default prim 이름
+    rootPrimType              = "Xform",
+
+    # --- 지오메트리 ---
+    exportUVs                 = True,
+    exportNormals             = True,
+    exportColorSets           = True,
+    exportDisplayColor        = True,
+    exportVisibility          = True,
+    exportInstances           = True,   # 인스턴스 유지
+    exportRoots               = [],     # 특정 루트 경로만 export
+
+    # --- 스키닝 / 블렌드셰이프 ---
+    exportSkin                = False,  # "auto" / True / False
+    exportBlendShapes         = False,
+
+    # --- 머터리얼 ---
+    shadingMode               = "useRegistry",  # "none" / "displayColor"
+    exportMaterialCollections = True,
+    materialsScopeName        = "mtl",
+
+    # --- 애니메이션 ---
+    exportAnimation           = False,
+    startTime                 = 1,
+    endTime                   = 120,
+    frameStride               = 1.0,
+    frameSample               = [0.0], # sub-frame 샘플 오프셋
+    staticSingleSample        = True,  # 애니메이션 없을 때 최적화
+
+    # --- 기타 ---
+    mergeTransformAndShape    = True,   # transform+shape 합침
+    stripNamespaces           = True,   # 네임스페이스 제거
+    worldspace                = False,  # 월드 좌표로 bake
+    verbose                   = False,
+)`
+  rawCodes[id]=optCode
+  p.innerHTML+=`${codeWrap(optCode,id)}</div>`
+}
+
+function buildPerf(){
+  const p=document.getElementById('p2')
+  perfSections.forEach(s=>{
+    rawCodes[s.codeId+'-bad']=s.bad
+    rawCodes[s.codeId+'-good']=s.good
+    p.innerHTML+=`
+      <div class="perf-card">
+        <div class="perf-header">
+          ${s.title}
+          <span class="badge badge-${s.badge}">${s.badge==='fast'?'권장':'비권장'}</span>
+        </div>
+        <div class="perf-body">
+          <div class="step-desc" style="margin-bottom:10px">${s.desc}</div>
+          <div class="compare">
+            <div class="compare-side">
+              <div class="compare-label label-bad">느린 방식</div>
+              ${codeWrap(s.bad, s.codeId+'-bad')}
+            </div>
+            <div class="compare-side">
+              <div class="compare-label label-good">빠른 방식</div>
+              ${codeWrap(s.good, s.codeId+'-good')}
+            </div>
+          </div>
+        </div>
+      </div>`
+  })
+}
+
+const tabs=[
+  {label:'퍼블리시 전체 플로우', id:'p0'},
+  {label:'mayaUsd API',          id:'p1'},
+  {label:'성능 최적화 패턴',      id:'p2'},
+]
+
+const tabsEl=document.getElementById('tabs')
+const panelsEl=document.getElementById('panels')
+
+tabs.forEach((t,i)=>{
+  const panel=document.createElement('div')
+  panel.className='panel'+(i===0?' active':'')
+  panel.id=t.id
+  panelsEl.appendChild(panel)
+
+  const btn=document.createElement('button')
+  btn.className='tab'+(i===0?' active':'')
+  btn.textContent=t.label
+  btn.onclick=()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'))
+    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'))
+    btn.classList.add('active')
+    panel.classList.add('active')
+  }
+  tabsEl.appendChild(btn)
+})
+
+buildFlow()
+buildMaya()
+buildPerf()
+</script>
