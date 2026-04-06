@@ -1,80 +1,199 @@
-
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixar USD Python API Reference</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: var(--font-sans); }
-.root { padding: 16px 0; }
-.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
-.tab {
-  padding: 6px 14px; border-radius: 20px; cursor: pointer;
-  font-size: 12px; font-weight: 500; border: 1px solid var(--color-border-secondary);
-  color: var(--color-text-secondary); background: var(--color-background-secondary);
-  transition: all .15s;
-}
-.tab.active {
-  background: #EEEDFE; color: #3C3489; border-color: #AFA9EC;
-}
-.tab:hover:not(.active) { border-color: var(--color-border-primary); color: var(--color-text-primary); }
-.panel { display: none; }
-.panel.active { display: block; }
-.section-title {
-  font-size: 11px; font-weight: 500; letter-spacing: .06em;
-  color: var(--color-text-tertiary); text-transform: uppercase;
-  margin: 18px 0 8px;
-}
-.card {
-  border: 1px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-lg);
-  margin-bottom: 8px;
-  overflow: hidden;
-}
-.card-header {
-  display: flex; align-items: baseline; gap: 10px;
-  padding: 10px 14px; cursor: pointer;
-  background: var(--color-background-secondary);
-  transition: background .12s;
-}
-.card-header:hover { background: var(--color-background-tertiary); }
-.fn-name {
-  font-family: var(--font-mono); font-size: 13px;
-  color: #185FA5; font-weight: 500; flex-shrink: 0;
-}
-.fn-sig {
-  font-family: var(--font-mono); font-size: 11px;
-  color: var(--color-text-tertiary); white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis; max-width: 280px;
-}
-.fn-brief {
-  font-size: 12px; color: var(--color-text-secondary);
-  margin-left: auto; flex-shrink: 0;
-}
-.card-body { display: none; padding: 12px 14px; border-top: 1px solid var(--color-border-tertiary); }
-.card-body.open { display: block; }
-.desc { font-size: 13px; color: var(--color-text-primary); line-height: 1.6; margin-bottom: 10px; }
-.code-block {
-  background: var(--color-background-tertiary);
-  border-radius: 6px; padding: 10px 12px;
-  font-family: var(--font-mono); font-size: 12px;
-  color: var(--color-text-primary); line-height: 1.7;
-  overflow-x: auto; white-space: pre;
-}
-.tag {
-  display: inline-block; font-size: 10px; font-weight: 500;
-  padding: 1px 7px; border-radius: 10px; margin-right: 4px;
-}
-.tag-stage { background: #E1F5EE; color: #0F6E56; }
-.tag-layer { background: #E6F1FB; color: #185FA5; }
-.tag-prim  { background: #EEEDFE; color: #534AB7; }
-.tag-attr  { background: #FAEEDA; color: #854F0B; }
-.tag-xform { background: #FAECE7; color: #993C1D; }
-.tag-ref   { background: #EAF3DE; color: #3B6D11; }
-.tag-var   { background: #FBEAF0; color: #993556; }
-.arrow { font-size: 11px; color: var(--color-text-tertiary); margin-left: auto; transition: transform .15s; }
-.arrow.open { transform: rotate(90deg); }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:          #0c0f0a;
+    --surface:     #131710;
+    --surface2:    #0e1209;
+    --border:      #1e2419;
+    --border-h:    #2e3828;
+    --border-p:    #3d4e36;
+    --accent:      #7fff5a;
+    --accent-dim:  #4a9933;
+    --tp:          #e8f0e4;
+    --ts:          #6b7d64;
+    --tt:          #3a4535;
+    --mono:        'DM Mono', monospace;
+    --display:     'Syne', sans-serif;
+    --body:        'Noto Sans KR', sans-serif;
+  }
+
+  html { background: var(--bg); color: var(--tp); font-family: var(--body); }
+
+  body {
+    min-height: 100vh;
+    padding: 0;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 48px 48px;
+    opacity: 0.5;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* nav */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 32px;
+    background: rgba(12,15,10,0.88);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  nav a {
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 11px;
+    color: var(--ts); text-decoration: none;
+    padding: 4px 10px; border-radius: 6px;
+    border: 1px solid var(--border);
+    transition: all .15s;
+  }
+  nav a:hover { color: var(--accent); border-color: var(--accent-dim); }
+  nav a svg { width: 12px; height: 12px; stroke: currentColor; }
+  .nav-sep { color: var(--tt); font-family: var(--mono); font-size: 12px; }
+  .nav-title { font-family: var(--mono); font-size: 12px; color: var(--tp); }
+
+  /* page */
+  .page {
+    max-width: 860px; margin: 0 auto;
+    padding: 40px 32px 80px;
+    position: relative; z-index: 1;
+  }
+
+  .page-header { margin-bottom: 32px; }
+  .eyebrow {
+    font-family: var(--mono); font-size: 10px;
+    color: var(--accent-dim); letter-spacing: .16em;
+    text-transform: uppercase; margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .eyebrow::before { content:''; width:20px; height:1px; background:var(--accent-dim); display:inline-block; }
+  h1 {
+    font-family: var(--display); font-size: clamp(28px,5vw,42px);
+    font-weight: 800; color: var(--tp); line-height: 1.1; letter-spacing: -.02em;
+  }
+  h1 span { color: var(--accent); }
+
+  /* tabs */
+  .tabs {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px;
+  }
+  .tab {
+    padding: 6px 14px; border-radius: 20px; cursor: pointer;
+    font-size: 12px; font-weight: 500; font-family: var(--mono);
+    border: 1px solid var(--border);
+    color: var(--ts); background: var(--surface);
+    transition: all .15s;
+  }
+  .tab.active { background: #141a0f; color: var(--accent); border-color: var(--accent-dim); }
+  .tab:hover:not(.active) { border-color: var(--border-h); color: var(--tp); }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .section-title {
+    font-family: var(--mono); font-size: 10px; font-weight: 500;
+    letter-spacing: .1em; color: var(--tt); text-transform: uppercase;
+    margin: 20px 0 8px;
+  }
+
+  /* cards */
+  .card {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 6px;
+    overflow: hidden;
+  }
+  .card-header {
+    display: flex; align-items: baseline; gap: 10px;
+    padding: 10px 14px; cursor: pointer;
+    background: var(--surface);
+    transition: background .12s;
+  }
+  .card-header:hover { background: var(--surface2); }
+  .fn-name {
+    font-family: var(--mono); font-size: 13px;
+    color: var(--accent); font-weight: 500; flex-shrink: 0;
+  }
+  .fn-sig {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--tt); white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; max-width: 280px;
+  }
+  .fn-brief {
+    font-size: 12px; color: var(--ts);
+    margin-left: auto; flex-shrink: 0;
+  }
+  .card-body { display: none; padding: 12px 14px; border-top: 1px solid var(--border); }
+  .card-body.open { display: block; }
+  .desc { font-size: 13px; color: var(--tp); line-height: 1.6; margin-bottom: 10px; }
+
+  .code-block {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px; padding: 10px 12px;
+    font-family: var(--mono); font-size: 12px;
+    color: var(--tp); line-height: 1.7;
+    overflow-x: auto; white-space: pre;
+  }
+
+  /* tags */
+  .tag {
+    display: inline-block; font-size: 10px; font-weight: 500;
+    font-family: var(--mono);
+    padding: 2px 8px; border-radius: 10px; margin-right: 4px;
+  }
+  .tag-stage { background: #0a1f0f; color: #5DCAA5; border: 1px solid #0d2e14; }
+  .tag-layer { background: #0a1520; color: #5ba8e8; border: 1px solid #0e1f30; }
+  .tag-prim  { background: #13112a; color: #9b95e8; border: 1px solid #1e1a40; }
+  .tag-attr  { background: #1f1508; color: #e0973a; border: 1px solid #2e1f0a; }
+  .tag-xform { background: #1f0f0a; color: #e07050; border: 1px solid #2e150d; }
+  .tag-ref   { background: #0d1f07; color: #7ab84a; border: 1px solid #142d0c; }
+  .tag-var   { background: #1f0a12; color: #e07098; border: 1px solid #2e1020; }
+
+  .arrow { font-size: 11px; color: var(--tt); margin-left: 8px; transition: transform .15s; }
+  .arrow.open { transform: rotate(90deg); }
 </style>
-<div class="root">
-<div class="tabs" id="tabs"></div>
-<div id="panels"></div>
+</head>
+<body>
+
+<nav>
+  <a href="index.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M19 12H5M12 5l-7 7 7 7"/>
+    </svg>
+    홈
+  </a>
+  <span class="nav-sep">/</span>
+  <span class="nav-title">Pixar USD Python API</span>
+</nav>
+
+<div class="page">
+  <div class="page-header">
+    <div class="eyebrow">Python API</div>
+    <h1>Pixar USD<br><span>Python</span> API Reference</h1>
+  </div>
+
+  <div class="tabs" id="tabs"></div>
+  <div id="panels"></div>
 </div>
+
 <script>
 const data = [
   {
@@ -132,7 +251,7 @@ root.Save()`
             name: "stage.Flatten()",
             sig: "() → SdfLayer",
             brief: "레이어 병합 반환",
-            desc: "모든 레이어를 하나로 합친 SdfLayer를 반환합니다. 파일로 저장하려면 `.Export()` 사용.",
+            desc: "모든 레이어를 하나로 합친 SdfLayer를 반환합니다. 파일로 저장하려면 .Export() 사용.",
             code: `flat = stage.Flatten()
 flat.Export("/output/merged.usda")`
           },
@@ -697,7 +816,7 @@ function buildUI() {
         body.className = 'card-body'
         body.innerHTML = `
           <p class="desc">${item.desc}</p>
-          <div class="code-block">${item.code.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+          <div class="code-block">${item.code.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
         `
         hdr.onclick = () => {
           const open = body.classList.toggle('open')
@@ -714,3 +833,5 @@ function buildUI() {
 }
 buildUI()
 </script>
+</body>
+</html>
