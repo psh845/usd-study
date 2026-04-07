@@ -174,7 +174,7 @@
 <body>
 
 <nav>
-  <a href="main.html">
+  <a href="index.html">
     <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M19 12H5M12 5l-7 7 7 7"/>
     </svg>
@@ -293,6 +293,77 @@ with Usd.EditContext(stage, session):
     prim.GetAttribute("visibility").Set("invisible")`
           },
         ]
+      }      ,
+      {
+        title: "Stage 설정 & 쿼리",
+        items: [
+          { name: "stage.GetPseudoRoot()", sig: "() → UsdPrim", brief: "의사 루트 Prim",
+            desc: "Stage 계층 최상단 의사 루트(/) Prim을 반환합니다.",
+            code: `root = stage.GetPseudoRoot()
+for child in root.GetChildren():
+    print(child.GetPath())`
+          },
+          { name: "stage.SetMetadata()", sig: "(key, value) → bool", brief: "Stage 레벨 메타데이터",
+            desc: "Stage(루트 레이어)에 메타데이터를 기록합니다. 커스텀 파이프라인 정보 저장에 유용합니다.",
+            code: `stage.SetMetadata("comment", "hero_v003 publish")
+stage.SetMetadata("customLayerData", {
+    "pipeline": "myStudio",
+    "publishDate": "2026-04-07",
+})
+val = stage.GetMetadata("comment")`
+          },
+          { name: "stage.SetInterpolationType()", sig: "(type) → None", brief: "보간 방식 설정",
+            desc: "타임코드 사이 attribute 값의 보간 방식을 설정합니다. Linear(선형) 또는 Held(유지).",
+            code: `from pxr import Usd
+stage.SetInterpolationType(Usd.InterpolationTypeLinear)  # 기본값
+stage.SetInterpolationType(Usd.InterpolationTypeHeld)    # 값 유지`
+          },
+          { name: "stage.GetUsedLayers()", sig: "() → [SdfLayer]", brief: "사용 중인 레이어 전체",
+            desc: "Stage가 참조 중인 모든 레이어(sublayer, reference, payload 포함)를 반환합니다.",
+            code: `for layer in stage.GetUsedLayers():
+    print(layer.identifier, "dirty:", layer.dirty)`
+          },
+          { name: "stage.MuteLayer()", sig: "(layerId) → None", brief: "레이어 음소거",
+            desc: "특정 레이어를 일시 비활성화합니다. 의견이 무시되어 하위 레이어가 보입니다.",
+            code: `layer_id = "/path/to/anim.usda"
+stage.MuteLayer(layer_id)
+print(stage.IsLayerMuted(layer_id))  # True
+stage.UnmuteLayer(layer_id)`
+          },
+        ]
+      },
+      {
+        title: "Layer 상태 관리",
+        items: [
+          { name: "layer.dirty", sig: "→ bool (read-only)", brief: "저장 필요 여부",
+            desc: "레이어가 마지막 저장 이후 변경되었는지 반환합니다.",
+            code: `if layer.dirty:
+    layer.Save()`
+          },
+          { name: "layer.Reload()", sig: "(force=False) → bool", brief: "디스크에서 재로드",
+            desc: "디스크의 파일을 다시 읽어 레이어를 갱신합니다. 외부 DCC에서 파일이 변경된 경우 사용합니다.",
+            code: `layer.Reload()           # 변경된 경우만
+layer.Reload(force=True)  # 강제 재로드`
+          },
+          { name: "layer.identifier / realPath", sig: "→ str (read-only)", brief: "레이어 경로 정보",
+            desc: "identifier는 논리 경로, realPath는 실제 파일시스템 경로입니다.",
+            code: `print(layer.identifier)  # "/path/to/file.usda"
+print(layer.realPath)     # 실제 절대 경로
+print(layer.anonymous)    # True면 메모리 전용`
+          },
+          { name: "layer.permissionToEdit", sig: "→ bool (get/set)", brief: "편집 권한",
+            desc: "False로 설정하면 레이어를 읽기 전용으로 잠급니다.",
+            code: `layer.permissionToEdit = False  # 잠금
+layer.permissionToEdit = True   # 잠금 해제`
+          },
+          { name: "layer.TransferContent()", sig: "(sourceLayer) → None", brief: "레이어 내용 복사",
+            desc: "다른 레이어의 모든 내용을 현재 레이어로 복사합니다.",
+            code: `src = Sdf.Layer.FindOrOpen("/path/source.usda")
+dst = Sdf.Layer.CreateNew("/path/dest.usda")
+dst.TransferContent(src)
+dst.Save()`
+          },
+        ]
       }
     ]
   },
@@ -391,6 +462,68 @@ if prim.IsValid():
 prim.SetAssetInfoByKey("version", "v003")`
           },
         ]
+      }      ,
+      {
+        title: "Prim 활성/인스턴스 상태",
+        items: [
+          { name: "prim.SetActive()", sig: "(bool) → bool", brief: "Prim 활성화 토글",
+            desc: "비활성화(False)하면 Stage 순회 시 해당 Prim과 하위가 무시됩니다. SetActive(False)는 숨김과 다릅니다.",
+            code: `prim.SetActive(False)
+print(prim.IsActive())  # False
+
+for p in stage.Traverse():    # 비활성 Prim 건너뜀
+    print(p)
+for p in stage.TraverseAll(): # 비활성 포함 전체 순회
+    print(p)`
+          },
+          { name: "prim.SetInstanceable()", sig: "(bool) → bool", brief: "인스턴싱 설정",
+            desc: "True로 설정하면 네이티브 인스턴스가 됩니다. 같은 레퍼런스를 가진 Prim들이 프로토타입을 공유해 메모리를 절약합니다.",
+            code: `prim.SetInstanceable(True)
+print(prim.IsInstance())  # 실제 인스턴스 상태인지`
+          },
+          { name: "prim.GetPrototype()", sig: "() → UsdPrim", brief: "인스턴스 프로토타입",
+            desc: "인스턴스 Prim의 프로토타입 Prim을 반환합니다.",
+            code: `if prim.IsInstance():
+    proto = prim.GetPrototype()
+    for child in proto.GetChildren():
+        print(child.GetPath())`
+          },
+          { name: "stage.GetPrototypes()", sig: "() → [UsdPrim]", brief: "모든 프로토타입",
+            desc: "Stage의 모든 네이티브 인스턴스 프로토타입을 반환합니다.",
+            code: `for proto in stage.GetPrototypes():
+    print(proto.GetPath())`
+          },
+        ]
+      },
+      {
+        title: "Prim 프로퍼티 조회",
+        items: [
+          { name: "prim.GetAttributes()", sig: "() → [UsdAttribute]", brief: "전체 Attribute 목록",
+            desc: "Prim에 정의된 모든 Attribute를 반환합니다.",
+            code: `for attr in prim.GetAttributes():
+    print(attr.GetName(), attr.GetTypeName())`
+          },
+          { name: "prim.GetRelationships()", sig: "() → [UsdRelationship]", brief: "전체 Relationship 목록",
+            desc: "Prim에 정의된 모든 Relationship을 반환합니다.",
+            code: `for rel in prim.GetRelationships():
+    print(rel.GetName(), rel.GetTargets())`
+          },
+          { name: "prim.GetPrimStack()", sig: "() → [SdfPrimSpec]", brief: "레이어별 스펙 목록",
+            desc: "이 Prim에 의견을 기여하는 모든 레이어의 SdfPrimSpec을 강도 순서로 반환합니다. 컴포지션 디버깅의 핵심입니다.",
+            code: `for spec in prim.GetPrimStack():
+    print(spec.layer.identifier)
+    print("  typeName:", spec.typeName)`
+          },
+          { name: "prim.HasAttribute()", sig: "(name) → bool", brief: "Attribute 존재 여부",
+            desc: "지정 이름의 Attribute가 존재하는지 확인합니다.",
+            code: `if prim.HasAttribute("points"):
+    pts = prim.GetAttribute("points").Get()`
+          },
+          { name: "prim.RemoveProperty()", sig: "(name) → bool", brief: "프로퍼티 삭제",
+            desc: "현재 편집 레이어에서 지정 이름의 프로퍼티를 삭제합니다.",
+            code: `prim.RemoveProperty("tempAttr")`
+          },
+        ]
       }
     ]
   },
@@ -466,6 +599,64 @@ uv = api.CreatePrimvar("st",
     Sdf.ValueTypeNames.TexCoord2fArray,
     UsdGeom.Tokens.faceVarying)
 uv.Set(uv_values)`
+          },
+        ]
+      }      ,
+      {
+        title: "Attribute 상태 & 쿼리",
+        items: [
+          { name: "attr.IsAuthored()", sig: "() → bool", brief: "현재 레이어에 기록 여부",
+            desc: "현재 편집 레이어에 이 attribute가 직접 기록되어 있는지 확인합니다.",
+            code: `if attr.IsAuthored():
+    print("이 레이어에 직접 기록된 값 있음")`
+          },
+          { name: "attr.HasValue()", sig: "() → bool", brief: "값 존재 여부",
+            desc: "HasValue()는 기본값 포함, HasAuthoredValue()는 명시적으로 기록된 값만 확인합니다.",
+            code: `attr.HasValue()          # 기본값 포함
+attr.HasAuthoredValue()  # 명시적 기록값만`
+          },
+          { name: "attr.ValueMightBeTimeVarying()", sig: "() → bool", brief: "애니메이션 여부 힌트",
+            desc: "attribute가 시간에 따라 변할 가능성을 빠르게 확인합니다. 실제 타임샘플 수 확인보다 훨씬 빠릅니다.",
+            code: `if attr.ValueMightBeTimeVarying():
+    samples = attr.GetTimeSamples()  # 타임샘플 처리
+else:
+    val = attr.Get()                 # 단일 기본값`
+          },
+          { name: "attr.GetBracketingTimeSamples()", sig: "(time) → (lower, upper, has)", brief: "인접 타임샘플 조회",
+            desc: "지정 시간 앞뒤의 타임샘플을 반환합니다. 커스텀 보간 구현에 사용합니다.",
+            code: `lower, upper, has = attr.GetBracketingTimeSamples(5.3)
+if has:
+    v_lower = attr.Get(Usd.TimeCode(lower))
+    v_upper = attr.Get(Usd.TimeCode(upper))`
+          },
+          { name: "attr.ClearAtTime()", sig: "(time) → bool", brief: "특정 프레임 키 삭제",
+            desc: "지정 타임코드의 타임샘플만 삭제합니다. 다른 프레임에는 영향을 주지 않습니다.",
+            code: `attr.ClearAtTime(Usd.TimeCode(10))  # 10프레임 키만 삭제`
+          },
+          { name: "attr.GetTypeName()", sig: "() → SdfValueTypeName", brief: "타입 & 역할 이름",
+            desc: "GetTypeName()은 Float3 등의 값 타입, GetRoleName()은 Point/Normal/Color 등 semantic 역할을 반환합니다.",
+            code: `print(attr.GetTypeName())   # Sdf.ValueTypeNames.Color3f
+print(attr.GetRoleName())   # "color"`
+          },
+        ]
+      },
+      {
+        title: "Attribute 연결 (Connection)",
+        items: [
+          { name: "attr.GetConnections()", sig: "() → [SdfPath]", brief: "연결된 소스 경로",
+            desc: "이 attribute에 연결된 소스 attribute 경로 목록을 반환합니다.",
+            code: `for conn in attr.GetConnections():
+    print(f"connected from: {conn}")`
+          },
+          { name: "attr.AddConnection()", sig: "(source) → bool", brief: "연결 추가",
+            desc: "attribute에 소스 경로를 연결합니다.",
+            code: `src_path = Sdf.Path("/Materials/Mat/Shader.outputs:surface")
+attr.AddConnection(src_path)`
+          },
+          { name: "attr.ClearConnections()", sig: "() → bool", brief: "연결 전체 제거",
+            desc: "attribute의 모든 연결을 지웁니다.",
+            code: `attr.RemoveConnection(src_path)  # 특정 연결만
+attr.ClearConnections()          # 전체 제거`
           },
         ]
       }
@@ -564,6 +755,96 @@ light.CreateIntensityAttr(1000.0)
 light.CreateColorAttr(Gf.Vec3f(1,1,1))`
           },
         ]
+      }      ,
+      {
+        title: "Xform Op 관리",
+        items: [
+          { name: "xform.GetOrderedXformOps()", sig: "() → [UsdGeomXformOp]", brief: "적용된 Op 목록",
+            desc: "현재 Prim에 정의된 xformOp 목록을 적용 순서대로 반환합니다.",
+            code: `xform = UsdGeom.Xformable(prim)
+for op in xform.GetOrderedXformOps():
+    print(op.GetOpName(), op.Get())`
+          },
+          { name: "xform.ClearXformOpOrder()", sig: "() → bool", brief: "Op 순서 초기화",
+            desc: "xformOpOrder attribute를 지워 모든 트랜스폼 Op를 초기화합니다.",
+            code: `UsdGeom.Xformable(prim).ClearXformOpOrder()`
+          },
+          { name: "xform.SetResetXformStack()", sig: "(reset) → bool", brief: "부모 트랜스폼 무시",
+            desc: "True로 설정하면 부모 계층의 트랜스폼을 무시하고 월드 공간으로 독립합니다.",
+            code: `UsdGeom.Xformable(prim).SetResetXformStack(True)`
+          },
+          { name: "xform.AddTransformOp()", sig: "() → UsdGeomXformOp", brief: "Matrix4d 트랜스폼 Op",
+            desc: "4x4 행렬 하나로 모든 트랜스폼을 표현합니다. Maya에서 단일 행렬로 bake할 때 사용합니다.",
+            code: `op = UsdGeom.Xformable(prim).AddTransformOp()
+op.Set(Gf.Matrix4d(1).SetTranslateOnly(Gf.Vec3d(5,0,0)))`
+          },
+        ]
+      },
+      {
+        title: "기본 지오메트리 프리미티브",
+        items: [
+          { name: "UsdGeom.Sphere.Define()", sig: "(stage, path) → UsdGeomSphere", brief: "구 생성",
+            desc: "반지름으로 정의되는 구 프리미티브를 생성합니다.",
+            code: `sphere = UsdGeom.Sphere.Define(stage, "/World/Ball")
+sphere.CreateRadiusAttr(1.0)`
+          },
+          { name: "UsdGeom.Cube.Define()", sig: "(stage, path) → UsdGeomCube", brief: "정육면체 생성",
+            desc: "size 하나로 정의되는 정육면체 프리미티브를 생성합니다.",
+            code: `cube = UsdGeom.Cube.Define(stage, "/World/Box")
+cube.CreateSizeAttr(2.0)`
+          },
+          { name: "UsdGeom.Cylinder.Define()", sig: "(stage, path) → UsdGeomCylinder", brief: "실린더 생성",
+            desc: "height, radius, axis(X/Y/Z)로 정의됩니다.",
+            code: `cyl = UsdGeom.Cylinder.Define(stage, "/World/Pillar")
+cyl.CreateHeightAttr(4.0)
+cyl.CreateRadiusAttr(0.5)
+cyl.CreateAxisAttr(UsdGeom.Tokens.y)`
+          },
+          { name: "UsdGeom.Capsule.Define()", sig: "(stage, path) → UsdGeomCapsule", brief: "캡슐 생성",
+            desc: "실린더+구 끝부분 형태의 캡슐 프리미티브를 생성합니다.",
+            code: `cap = UsdGeom.Capsule.Define(stage, "/World/Capsule")
+cap.CreateHeightAttr(2.0)
+cap.CreateRadiusAttr(0.5)`
+          },
+          { name: "UsdGeom.Scope.Define()", sig: "(stage, path) → UsdGeomScope", brief: "Scope — 무트랜스폼 그룹",
+            desc: "트랜스폼 없이 순수 계층 정리용 그룹 Prim입니다. Geometry, Looks 등 네임스페이스 분리에 사용합니다.",
+            code: `UsdGeom.Scope.Define(stage, "/World/Geometry")
+UsdGeom.Scope.Define(stage, "/World/Looks")`
+          },
+          { name: "UsdGeom.BasisCurves.Define()", sig: "(stage, path) → UsdGeomBasisCurves", brief: "커브 (Hair/Fur)",
+            desc: "베지어·B스플라인 커브 집합을 표현합니다. Hair/Fur 렌더링에 사용됩니다.",
+            code: `curves = UsdGeom.BasisCurves.Define(stage, "/World/Hair")
+curves.CreateTypeAttr(UsdGeom.Tokens.linear)
+curves.CreateCurveVertexCountsAttr(Vt.IntArray([4]))
+curves.CreatePointsAttr(Vt.Vec3fArray([
+    Gf.Vec3f(0,0,0), Gf.Vec3f(0,1,0),
+    Gf.Vec3f(0,2,0), Gf.Vec3f(0,3,0),
+]))
+curves.CreateWidthsAttr(Vt.FloatArray([0.02,0.02,0.01,0.0]))`
+          },
+          { name: "UsdGeom.Points.Define()", sig: "(stage, path) → UsdGeomPoints", brief: "포인트 클라우드",
+            desc: "파티클 등 점 집합을 표현합니다. widths primvar로 각 점의 크기를 설정합니다.",
+            code: `pts = UsdGeom.Points.Define(stage, "/World/Particles")
+pts.CreatePointsAttr(Vt.Vec3fArray([Gf.Vec3f(0,0,0), Gf.Vec3f(1,0,0)]))
+pts.CreateWidthsAttr(Vt.FloatArray([0.1, 0.2]))`
+          },
+        ]
+      },
+      {
+        title: "Stage 단위 & 축",
+        items: [
+          { name: "UsdGeom.SetStageUpAxis()", sig: "(stage, axis) → bool", brief: "Up 축 설정",
+            desc: "Stage의 Up 방향을 Y 또는 Z로 설정합니다. Maya는 Y-up, Houdini는 Z-up을 사용합니다.",
+            code: `UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.y)   # Maya
+UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)   # Houdini
+print(UsdGeom.GetStageUpAxis(stage))`
+          },
+          { name: "UsdGeom.SetStageMetersPerUnit()", sig: "(stage, value) → bool", brief: "단위 스케일",
+            desc: "Stage의 월드 단위를 미터 기준으로 설정합니다. Maya 기본(cm)은 0.01입니다.",
+            code: `UsdGeom.SetStageMetersPerUnit(stage, 0.01)  # cm (Maya 기본)
+UsdGeom.SetStageMetersPerUnit(stage, 1.0)   # m`
+          },
+        ]
       }
     ]
   },
@@ -616,6 +897,54 @@ prim.GetInherits().AddInherit(cls.GetPath())`
             code: `prim.GetSpecializes().AddSpecialize("/base/Char")`
           },
         ]
+      }      ,
+      {
+        title: "Reference 편집",
+        items: [
+          { name: "refs.RemoveReference()", sig: "(assetPath) → bool", brief: "Reference 제거",
+            desc: "특정 Reference를 제거합니다. 경로가 정확히 일치해야 합니다.",
+            code: `prim.GetReferences().RemoveReference("./chars/hero_v002.usda")`
+          },
+          { name: "refs.ClearReferences()", sig: "() → bool", brief: "모든 Reference 제거",
+            desc: "Prim에 걸린 모든 Reference를 제거합니다.",
+            code: `prim.GetReferences().ClearReferences()`
+          },
+          { name: "refs.SetReferences()", sig: "([SdfReference]) → bool", brief: "Reference 일괄 교체",
+            desc: "기존 Reference를 모두 지우고 새 목록으로 교체합니다. 버전 업 시 활용합니다.",
+            code: `prim.GetReferences().SetReferences([
+    Sdf.Reference("./chars/hero_v003.usda"),
+])`
+          },
+        ]
+      },
+      {
+        title: "Payload 로드 제어",
+        items: [
+          { name: "prim.IsLoaded()", sig: "() → bool", brief: "Payload 로드 여부",
+            desc: "Prim의 Payload가 현재 로드되어 있는지 확인합니다.",
+            code: `if not prim.IsLoaded():
+    prim.Load()
+print(prim.IsLoaded())  # True`
+          },
+          { name: "prim.Load() / Unload()", sig: "(policy?) → None", brief: "개별 Prim Payload 로드",
+            desc: "단일 Prim의 Payload를 로드하거나 언로드합니다.",
+            code: `from pxr import Usd
+prim.Load()    # 이 Prim + 하위 전부
+prim.Unload()  # 언로드
+prim.Load(Usd.LoadWithoutDescendants)  # 하위 제외`
+          },
+          { name: "stage.LoadAll() / UnloadAll()", sig: "() → None", brief: "전체 Payload 토글",
+            desc: "Stage의 모든 Payload를 한 번에 로드하거나 언로드합니다.",
+            code: `stage.LoadAll()
+stage.UnloadAll()`
+          },
+          { name: "stage.GetLoadRules()", sig: "() → UsdStageLoadRules", brief: "로드 규칙 조회",
+            desc: "Stage의 Payload 로드 규칙 객체를 반환합니다. 세밀한 로드 정책 제어에 사용합니다.",
+            code: `rules = stage.GetLoadRules()
+rules.AddRule("/World/HiRes", Usd.StageLoadRules.AllRule)
+stage.SetLoadRules(rules)`
+          },
+        ]
       }
     ]
   },
@@ -663,6 +992,34 @@ with vset.GetVariantEditContext():
     mesh_prim.GetAttribute("points").Set(high_res_pts)`
           },
         ]
+      }      ,
+      {
+        title: "Variant 쿼리",
+        items: [
+          { name: "variantSets.GetNames()", sig: "() → [str]", brief: "VariantSet 이름 목록",
+            desc: "Prim에 정의된 모든 VariantSet의 이름 목록을 반환합니다.",
+            code: `names = prim.GetVariantSets().GetNames()
+# ['LOD', 'shading', 'costume']`
+          },
+          { name: "prim.GetVariantSet()", sig: "(name) → UsdVariantSet", brief: "특정 VariantSet 조회",
+            desc: "이름으로 특정 VariantSet을 반환합니다.",
+            code: `lod = prim.GetVariantSet("LOD")`
+          },
+          { name: "vset.GetVariantNames()", sig: "() → [str]", brief: "Variant 이름 목록",
+            desc: "VariantSet에 등록된 모든 Variant 이름 목록을 반환합니다.",
+            code: `print(prim.GetVariantSet("LOD").GetVariantNames())
+# ['high', 'mid', 'low']`
+          },
+          { name: "vset.GetVariantSelection()", sig: "() → str", brief: "현재 선택 Variant",
+            desc: "현재 활성화된 Variant 이름을 반환합니다. 선택 없으면 빈 문자열.",
+            code: `current = prim.GetVariantSet("LOD").GetVariantSelection()
+print(current)  # 'high'`
+          },
+          { name: "vset.ClearVariantSelection()", sig: "() → bool", brief: "Variant 선택 초기화",
+            desc: "현재 선택된 Variant를 해제합니다.",
+            code: `prim.GetVariantSet("LOD").ClearVariantSelection()`
+          },
+        ]
       }
     ]
   },
@@ -705,6 +1062,44 @@ mat.CreateSurfaceOutput().ConnectToSource(pbr_out)`
             brief: "머터리얼 바인딩",
             desc: "Prim에 Material을 바인딩합니다. 하위 Prim들에 자동 상속됩니다.",
             code: `UsdShade.MaterialBindingAPI(mesh_prim).Bind(mat)`
+          },
+        ]
+      }      ,
+      {
+        title: "UsdShade NodeGraph — 셰이더 그룹",
+        items: [
+          { name: "UsdShade.NodeGraph.Define()", sig: "(stage, path) → UsdShadeNodeGraph", brief: "노드그래프 생성",
+            desc: "여러 Shader를 묶는 NodeGraph를 생성합니다. 텍스처 네트워크나 재사용 셰이더 서브그래프 캡슐화에 사용합니다.",
+            code: `ng = UsdShade.NodeGraph.Define(stage, "/Materials/Mat/TexNetwork")
+tex = UsdShade.Shader.Define(stage, "/Materials/Mat/TexNetwork/BaseColor")
+tex.CreateIdAttr("UsdUVTexture")
+tex.CreateInput("file", Sdf.ValueTypeNames.Asset).Set(
+    Sdf.AssetPath("./textures/baseColor.png")
+)`
+          },
+          { name: "input.ConnectToSource()", sig: "(output) → bool", brief: "두 셰이더 노드 연결",
+            desc: "Input과 Output을 연결합니다. 노드 그래프 와이어링에 사용합니다.",
+            code: `tex_out = tex.CreateOutput("rgb", Sdf.ValueTypeNames.Float3)
+pbr_in  = pbr.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f)
+pbr_in.ConnectToSource(tex_out)`
+          },
+          { name: "shader.GetInput() / GetOutput()", sig: "(name) → UsdShadeInput|Output", brief: "Input/Output 조회",
+            desc: "이름으로 셰이더의 Input 또는 Output을 반환합니다.",
+            code: `inp = shader.GetInput("roughness")
+print(inp.Get())  # 0.4
+
+out = shader.GetOutput("surface")
+print(out.GetConnectedSources())`
+          },
+          { name: "binding.ComputeBoundMaterial()", sig: "() → (Material, Relationship)", brief: "바인딩 Material 계산",
+            desc: "계층 전체를 고려해 Prim에 실제 적용될 Material을 계산합니다.",
+            code: `mat, rel = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial()
+if mat:
+    print("적용 머터리얼:", mat.GetPath())`
+          },
+          { name: "binding.UnbindAllBindings()", sig: "() → bool", brief: "머터리얼 바인딩 제거",
+            desc: "Prim에서 모든 Material 바인딩을 제거합니다.",
+            code: `UsdShade.MaterialBindingAPI(prim).UnbindAllBindings()`
           },
         ]
       }
@@ -769,9 +1164,980 @@ stage.SetEndTimeCode(120)
 stage.SetFramesPerSecond(24)`
           },
         ]
+      }      ,
+      {
+        title: "가시성 제어",
+        items: [
+          { name: "imageable.MakeVisible()", sig: "(time?) → None", brief: "Prim 보이게",
+            desc: "Prim의 visibility를 'inherited'로 설정해 보이게 만듭니다.",
+            code: `UsdGeom.Imageable(prim).MakeVisible()`
+          },
+          { name: "imageable.MakeInvisible()", sig: "(time?) → None", brief: "Prim 숨기기",
+            desc: "Prim의 visibility를 'invisible'로 설정합니다. 하위 Prim과 무관하게 렌더에서 제외됩니다.",
+            code: `UsdGeom.Imageable(prim).MakeInvisible()
+# 특정 프레임에만
+UsdGeom.Imageable(prim).MakeInvisible(Usd.TimeCode(10))`
+          },
+          { name: "imageable.ComputeEffectiveVisibility()", sig: "(purpose?, time?) → token", brief: "실효 가시성 계산",
+            desc: "purpose와 시간을 고려한 최종 visibility를 반환합니다.",
+            code: `vis = UsdGeom.Imageable(prim).ComputeEffectiveVisibility(
+    UsdGeom.Tokens.render,
+    Usd.TimeCode.Default()
+)
+# 'inherited' or 'invisible'`
+          },
+        ]
+      },
+      {
+        title: "Model 계층 쿼리",
+        items: [
+          { name: "Usd.ModelAPI(prim).IsModel()", sig: "() → bool", brief: "Model 여부 확인",
+            desc: "Prim이 model kind(component, group, assembly 등)인지 확인합니다.",
+            code: `if Usd.ModelAPI(prim).IsModel():
+    print("model:", prim.GetPath())`
+          },
+          { name: "Usd.ModelAPI(prim).IsGroup()", sig: "() → bool", brief: "Group 여부 확인",
+            desc: "Prim의 Kind가 group 또는 assembly인지 확인합니다.",
+            code: `if Usd.ModelAPI(prim).IsGroup():
+    for child in prim.GetChildren():
+        print(child.GetPath())`
+          },
+          { name: "stage.Traverse(predicate)", sig: "(predicate) → iterator", brief: "조건부 순회",
+            desc: "predicate를 사용해 원하는 Prim만 선택적으로 순회합니다. 전체 순회보다 훨씬 빠릅니다.",
+            code: `from pxr import Usd
+
+# Kind가 model인 Prim만
+for prim in stage.Traverse(Usd.PrimIsModel):
+    print(prim.GetPath())
+
+# 여러 조건 조합
+pred = Usd.PrimIsActive & Usd.PrimIsLoaded
+for prim in stage.Traverse(pred):
+    print(prim.GetPath())`
+          },
+        ]
       }
     ]
   }
+  ,
+  // ─────────────────────────────────────────────
+  //  NEW: Sdf — 레이어 직접 편집
+  // ─────────────────────────────────────────────
+  {
+    tab: "Sdf",
+    tag: "tag-layer",
+    sections: [
+      {
+        title: "SdfPath — 경로 처리",
+        items: [
+          {
+            name: "Sdf.Path()",
+            sig: "(pathString) → SdfPath",
+            brief: "경로 객체 생성",
+            desc: "USD 경로 문자열을 SdfPath 객체로 변환합니다. 경로 조작의 기본 타입입니다.",
+            code: `from pxr import Sdf
+
+p = Sdf.Path("/World/Asset/Mesh")
+print(p.name)          # "Mesh"
+print(p.pathString)    # "/World/Asset/Mesh"
+print(p.IsAbsolutePath())  # True`
+          },
+          {
+            name: "path.AppendChild()",
+            sig: "(name) → SdfPath",
+            brief: "자식 경로 생성",
+            desc: "현재 경로에 자식 이름을 추가한 새 SdfPath를 반환합니다.",
+            code: `p = Sdf.Path("/World")
+child = p.AppendChild("Asset")
+# → SdfPath("/World/Asset")`
+          },
+          {
+            name: "path.AppendProperty()",
+            sig: "(name) → SdfPath",
+            brief: "프로퍼티 경로 생성",
+            desc: "Prim 경로에 attribute 이름을 붙여 프로퍼티 경로를 만듭니다.",
+            code: `prim_path = Sdf.Path("/World/Cube")
+attr_path = prim_path.AppendProperty("points")
+# → SdfPath("/World/Cube.points")`
+          },
+          {
+            name: "path.GetParentPath()",
+            sig: "() → SdfPath",
+            brief: "부모 경로 반환",
+            desc: "현재 경로의 부모 경로를 반환합니다.",
+            code: `p = Sdf.Path("/World/Asset/Mesh")
+parent = p.GetParentPath()
+# → SdfPath("/World/Asset")`
+          },
+          {
+            name: "path.HasPrefix()",
+            sig: "(prefix) → bool",
+            brief: "접두사 포함 여부",
+            desc: "경로가 특정 접두사 경로로 시작하는지 확인합니다.",
+            code: `p = Sdf.Path("/World/Asset/Mesh")
+p.HasPrefix(Sdf.Path("/World"))  # True
+p.HasPrefix(Sdf.Path("/Props"))  # False`
+          },
+          {
+            name: "Sdf.Path.IsValidPathString()",
+            sig: "(pathStr) → (bool, errMsg)",
+            brief: "경로 문자열 유효성 검사",
+            desc: "경로 문자열이 USD 규칙에 맞는지 사전 검사합니다. bool과 오류 메시지 튜플을 반환합니다.",
+            code: `ok, err = Sdf.Path.IsValidPathString("/World/Asset")
+if not ok:
+    print(f"잘못된 경로: {err}")`
+          },
+        ]
+      },
+      {
+        title: "SdfLayer 직접 편집",
+        items: [
+          {
+            name: "Sdf.Layer.CreateNew()",
+            sig: "(filePath, args={}) → SdfLayer",
+            brief: "새 레이어 생성",
+            desc: "새 SdfLayer 파일을 생성합니다. Stage를 거치지 않고 레이어를 직접 다룰 때 사용합니다.",
+            code: `from pxr import Sdf
+layer = Sdf.Layer.CreateNew("/tmp/edit.usda")
+layer.Save()`
+          },
+          {
+            name: "Sdf.Layer.FindOrOpen()",
+            sig: "(identifier) → SdfLayer | None",
+            brief: "레이어 열기 (캐시 우선)",
+            desc: "레지스트리에 이미 로드된 레이어가 있으면 반환하고, 없으면 파일을 열어 반환합니다.",
+            code: `layer = Sdf.Layer.FindOrOpen("/path/to/asset.usda")
+if layer:
+    print(layer.identifier)`
+          },
+          {
+            name: "layer.ExportToString()",
+            sig: "() → str",
+            brief: "레이어를 USDA 문자열로",
+            desc: "레이어 전체 내용을 USDA 형식의 문자열로 반환합니다. 디버깅 및 diff에 유용합니다.",
+            code: `usda_text = layer.ExportToString()
+print(usda_text[:500])`
+          },
+          {
+            name: "layer.ImportFromString()",
+            sig: "(data) → bool",
+            brief: "문자열로 레이어 로드",
+            desc: "USDA 형식의 문자열을 레이어로 임포트합니다. 동적 레이어 생성에 유용합니다.",
+            code: `usda = """
+#usda 1.0
+def Xform "Root" {}
+"""
+layer.ImportFromString(usda)`
+          },
+          {
+            name: "layer.subLayerPaths",
+            sig: "→ SdfSubLayerProxy (list-like)",
+            brief: "서브레이어 경로 목록",
+            desc: "레이어의 서브레이어 경로 목록입니다. append/remove로 서브레이어를 추가·제거합니다.",
+            code: `layer.subLayerPaths.append("./anim.usda")
+layer.subLayerPaths.append("./look.usda")
+print(list(layer.subLayerPaths))`
+          },
+          {
+            name: "layer.defaultPrim",
+            sig: "→ str (get/set)",
+            brief: "default prim 이름",
+            desc: "레이어의 defaultPrim 메타데이터를 직접 읽거나 씁니다.",
+            code: `layer.defaultPrim = "Hero"
+print(layer.defaultPrim)  # "Hero"`
+          },
+          {
+            name: "layer.startTimeCode / endTimeCode",
+            sig: "→ float (get/set)",
+            brief: "프레임 범위",
+            desc: "레이어에 직접 프레임 범위를 기록합니다.",
+            code: `layer.startTimeCode = 1
+layer.endTimeCode   = 120
+layer.framesPerSecond = 24.0`
+          },
+        ]
+      },
+      {
+        title: "SdfPrimSpec — 스펙 직접 편집",
+        items: [
+          {
+            name: "Sdf.PrimSpec(parent, name, specifier)",
+            sig: "(parent, name, specifier) → SdfPrimSpec",
+            brief: "PrimSpec 생성",
+            desc: "레이어에 Prim 스펙을 직접 생성합니다. stage.DefinePrim()보다 저수준이며 더 세밀한 제어가 가능합니다.",
+            code: `from pxr import Sdf
+
+layer = Sdf.Layer.CreateNew("/tmp/spec.usda")
+root  = Sdf.PrimSpec(layer, "World",     Sdf.SpecifierDef)
+child = Sdf.PrimSpec(root,  "Asset",     Sdf.SpecifierDef)
+child.typeName = "Xform"`
+          },
+          {
+            name: "primSpec.typeName",
+            sig: "→ str (get/set)",
+            brief: "타입 이름 설정",
+            desc: "PrimSpec의 스키마 타입 이름을 직접 설정합니다.",
+            code: `primSpec.typeName = "Mesh"`
+          },
+          {
+            name: "primSpec.specifier",
+            sig: "→ SdfSpecifier (get/set)",
+            brief: "스펙 종류 설정",
+            desc: "Def / Over / Class 중 하나를 설정합니다.",
+            code: `# Sdf.SpecifierDef   → def
+# Sdf.SpecifierOver  → over
+# Sdf.SpecifierClass → class
+primSpec.specifier = Sdf.SpecifierOver`
+          },
+          {
+            name: "primSpec.SetInfo()",
+            sig: "(key, value) → None",
+            brief: "메타데이터 직접 기록",
+            desc: "PrimSpec에 키-값 메타데이터를 직접 씁니다.",
+            code: `primSpec.SetInfo("comment", "exported from Maya")
+primSpec.SetInfo("kind",    "component")`
+          },
+        ]
+      },
+      {
+        title: "SdfAttributeSpec — 어트리뷰트 스펙",
+        items: [
+          {
+            name: "Sdf.AttributeSpec(owner, name, typeName)",
+            sig: "(owner, name, typeName) → SdfAttributeSpec",
+            brief: "AttributeSpec 생성",
+            desc: "PrimSpec에 AttributeSpec을 직접 생성합니다. default값을 동시에 지정할 수 있습니다.",
+            code: `from pxr import Sdf, Gf
+
+attrSpec = Sdf.AttributeSpec(
+    primSpec, "myColor",
+    Sdf.ValueTypeNames.Color3f
+)
+attrSpec.default = Gf.Vec3f(1.0, 0.5, 0.0)`
+          },
+          {
+            name: "attrSpec.SetInfo(Sdf.AttributeSpec.DisplayNameKey, v)",
+            sig: "(key, value) → None",
+            brief: "UI 표시 이름 설정",
+            desc: "USD 편집 UI에서 보여줄 attribute 표시 이름을 설정합니다.",
+            code: `attrSpec.SetInfo(
+    Sdf.AttributeSpec.DisplayNameKey,
+    "My Color"
+)`
+          },
+        ]
+      },
+      {
+        title: "SdfChangeBlock",
+        items: [
+          {
+            name: "Sdf.ChangeBlock()",
+            sig: "context manager",
+            brief: "변경 알림 배치",
+            desc: "블록 내 모든 레이어 변경을 모아 블록 종료 시 한 번에 알립니다. 대량 편집 시 성능이 극적으로 향상됩니다.",
+            code: `from pxr import Sdf, Usd
+
+with Sdf.ChangeBlock():
+    for i in range(10000):
+        prim = stage.GetPrimAtPath(f"/World/Prim_{i}")
+        prim.GetAttribute("size").Set(float(i))
+# 블록 종료 시 단 1회 알림 발생`
+          },
+        ]
+      },
+    ]
+  },
+  // ─────────────────────────────────────────────
+  //  NEW: Vt / Gf — 값 타입과 수학
+  // ─────────────────────────────────────────────
+  {
+    tab: "Vt / Gf",
+    tag: "tag-attr",
+    sections: [
+      {
+        title: "Vt — 배열 타입",
+        items: [
+          {
+            name: "Vt.Vec3fArray()",
+            sig: "([items]) → VtArray",
+            brief: "3D 벡터 배열",
+            desc: "points, normals 등 3D 벡터 배열입니다. UsdGeomMesh의 points attribute에 사용합니다.",
+            code: `from pxr import Vt, Gf
+
+pts = Vt.Vec3fArray([
+    Gf.Vec3f(0, 0, 0),
+    Gf.Vec3f(1, 0, 0),
+    Gf.Vec3f(1, 1, 0),
+])
+mesh.CreatePointsAttr(pts)`
+          },
+          {
+            name: "Vt.IntArray()",
+            sig: "([items]) → VtArray",
+            brief: "정수 배열",
+            desc: "faceVertexCounts, faceVertexIndices 등 정수 배열입니다.",
+            code: `counts  = Vt.IntArray([4, 4, 4, 4, 4, 4])  # 큐브 6면
+indices = Vt.IntArray([0,1,2,3, 4,5,6,7, ...])`
+          },
+          {
+            name: "Vt.FloatArray()",
+            sig: "([items]) → VtArray",
+            brief: "float 배열",
+            desc: "widths, radius 등 float 배열입니다.",
+            code: `widths = Vt.FloatArray([0.1] * 100)  # 100개 커브 굵기`
+          },
+          {
+            name: "Vt.Vec2fArray()",
+            sig: "([items]) → VtArray",
+            brief: "2D 벡터 배열 (UV)",
+            desc: "UV 좌표 등 2D 벡터 배열입니다. primvar 'st'에 사용합니다.",
+            code: `from pxr import Vt, Gf
+
+uvs = Vt.Vec2fArray([
+    Gf.Vec2f(0, 0), Gf.Vec2f(1, 0),
+    Gf.Vec2f(1, 1), Gf.Vec2f(0, 1),
+])`
+          },
+          {
+            name: "Vt.StringArray()",
+            sig: "([items]) → VtArray",
+            brief: "문자열 배열",
+            desc: "문자열 값의 배열입니다.",
+            code: `tags = Vt.StringArray(["hero", "char", "body"])`
+          },
+          {
+            name: "Vt.Matrix4dArray()",
+            sig: "([items]) → VtArray",
+            brief: "4x4 행렬 배열",
+            desc: "PointInstancer의 transform 배열 등에 사용합니다.",
+            code: `from pxr import Vt, Gf
+import math
+
+mats = Vt.Matrix4dArray([
+    Gf.Matrix4d(1),   # 단위 행렬
+    Gf.Matrix4d(1).SetTranslateOnly(Gf.Vec3d(10,0,0)),
+])`
+          },
+        ]
+      },
+      {
+        title: "Gf — 수학 타입",
+        items: [
+          {
+            name: "Gf.Vec3f / Vec3d",
+            sig: "(x, y, z) → GfVec3",
+            brief: "3D 벡터",
+            desc: "translate, scale, normal 등에 사용하는 3D 벡터입니다. f=float32, d=float64.",
+            code: `from pxr import Gf
+
+v = Gf.Vec3f(1.0, 2.0, 3.0)
+print(v.GetLength())           # 벡터 크기
+print(v.GetNormalized())       # 정규화
+print(v + Gf.Vec3f(0,1,0))    # 덧셈`
+          },
+          {
+            name: "Gf.Quatf / Quatd",
+            sig: "(real, i, j, k) → GfQuat",
+            brief: "사원수 (회전)",
+            desc: "회전을 표현하는 사원수입니다. xformOp:orient 에 사용합니다.",
+            code: `import math
+from pxr import Gf
+
+# Y축 90도 회전
+half = math.radians(90) / 2
+q = Gf.Quatf(math.cos(half), Gf.Vec3f(0, math.sin(half), 0))
+
+op = UsdGeom.Xformable(prim).AddOrientOp()
+op.Set(q)`
+          },
+          {
+            name: "Gf.Matrix4d()",
+            sig: "(value=1) → GfMatrix4d",
+            brief: "4x4 행렬",
+            desc: "변환 행렬 연산에 사용합니다. 1을 전달하면 단위 행렬이 됩니다.",
+            code: `from pxr import Gf
+
+m = Gf.Matrix4d(1)                    # 단위 행렬
+m.SetTranslateOnly(Gf.Vec3d(1,2,3))   # 이동 설정
+m.SetRotateOnly(Gf.Rotation(          # 회전 설정
+    Gf.Vec3d(0,1,0), 45))
+inv = m.GetInverse()                   # 역행렬`
+          },
+          {
+            name: "Gf.Range3d()",
+            sig: "(min, max) → GfRange3d",
+            brief: "3D Bounding Box",
+            desc: "최솟값·최댓값으로 3D 범위를 표현합니다. BBox 계산 결과로 자주 사용됩니다.",
+            code: `bbox = Gf.Range3d(
+    Gf.Vec3d(-1,-1,-1),
+    Gf.Vec3d( 1, 1, 1)
+)
+print(bbox.GetSize())     # (2,2,2)
+print(bbox.GetMidpoint()) # (0,0,0)`
+          },
+          {
+            name: "Gf.Rotation()",
+            sig: "(axis, degrees) → GfRotation",
+            brief: "축-각도 회전",
+            desc: "축 벡터와 각도로 회전을 표현합니다. Gf.Matrix4d에 SetRotateOnly로 적용합니다.",
+            code: `rot = Gf.Rotation(Gf.Vec3d(0,1,0), 45.0)  # Y축 45도`
+          },
+        ]
+      },
+      {
+        title: "Sdf.ValueTypeNames — 타입 이름 상수",
+        items: [
+          {
+            name: "Sdf.ValueTypeNames.*",
+            sig: "→ SdfValueTypeName 상수",
+            brief: "USD 값 타입 상수 목록",
+            desc: "CreateAttribute() 와 CreatePrimvar() 의 typeName 인자로 사용하는 상수들입니다.",
+            code: `from pxr import Sdf
+
+# 스칼라
+Sdf.ValueTypeNames.Float         # float
+Sdf.ValueTypeNames.Double        # double
+Sdf.ValueTypeNames.Int           # int
+Sdf.ValueTypeNames.Bool          # bool
+Sdf.ValueTypeNames.String        # string
+Sdf.ValueTypeNames.Token         # token (enum-like)
+Sdf.ValueTypeNames.Asset         # asset (파일 경로)
+
+# 벡터
+Sdf.ValueTypeNames.Float2        # Gf.Vec2f
+Sdf.ValueTypeNames.Float3        # Gf.Vec3f
+Sdf.ValueTypeNames.Vector3f      # normal/tangent 용
+Sdf.ValueTypeNames.Color3f       # RGB 색상
+Sdf.ValueTypeNames.Color4f       # RGBA 색상
+Sdf.ValueTypeNames.TexCoord2fArray  # UV 배열
+Sdf.ValueTypeNames.Point3fArray  # 점 배열
+Sdf.ValueTypeNames.Normal3fArray # 노멀 배열
+Sdf.ValueTypeNames.Vec3fArray    # 일반 3D 배열
+Sdf.ValueTypeNames.IntArray      # int 배열
+Sdf.ValueTypeNames.FloatArray    # float 배열
+Sdf.ValueTypeNames.Matrix4d      # 4x4 행렬`
+          },
+        ]
+      },
+    ]
+  },
+  // ─────────────────────────────────────────────
+  //  NEW: UsdSkel — 스켈레탈 애니메이션
+  // ─────────────────────────────────────────────
+  {
+    tab: "UsdSkel",
+    tag: "tag-xform",
+    sections: [
+      {
+        title: "스켈레톤 정의",
+        items: [
+          {
+            name: "UsdSkel.Skeleton.Define()",
+            sig: "(stage, path) → UsdSkelSkeleton",
+            brief: "Skeleton Prim 생성",
+            desc: "뼈대(joint) 계층을 정의하는 Skeleton Prim을 생성합니다. joints 속성에 경로 배열을 설정합니다.",
+            code: `from pxr import UsdSkel, Vt
+
+skel = UsdSkel.Skeleton.Define(stage, "/Rig/Skeleton")
+
+# joint 계층 (루트로부터의 상대 경로)
+joints = Vt.TokenArray([
+    "Root",
+    "Root/Spine",
+    "Root/Spine/Chest",
+    "Root/Spine/Chest/L_Shoulder",
+    "Root/Spine/Chest/R_Shoulder",
+])
+skel.CreateJointsAttr(joints)`
+          },
+          {
+            name: "skel.CreateBindTransformsAttr()",
+            sig: "(transforms) → UsdAttribute",
+            brief: "바인드 포즈 행렬",
+            desc: "각 joint의 월드 공간 bind-pose 변환 행렬 배열을 설정합니다.",
+            code: `from pxr import Vt, Gf
+
+bind_xforms = Vt.Matrix4dArray([
+    Gf.Matrix4d(1),  # Root
+    Gf.Matrix4d(1).SetTranslateOnly(Gf.Vec3d(0,1,0)),  # Spine
+    # ...
+])
+skel.CreateBindTransformsAttr(bind_xforms)`
+          },
+          {
+            name: "skel.CreateRestTransformsAttr()",
+            sig: "(transforms) → UsdAttribute",
+            brief: "rest 포즈 행렬",
+            desc: "각 joint의 로컬 공간 rest-pose 변환 행렬 배열을 설정합니다.",
+            code: `rest_xforms = Vt.Matrix4dArray([Gf.Matrix4d(1)] * len(joints))
+skel.CreateRestTransformsAttr(rest_xforms)`
+          },
+        ]
+      },
+      {
+        title: "SkelAnimation — 애니메이션",
+        items: [
+          {
+            name: "UsdSkel.Animation.Define()",
+            sig: "(stage, path) → UsdSkelAnimation",
+            brief: "SkelAnimation Prim 생성",
+            desc: "joint 애니메이션 채널(translations, rotations, scales)을 담는 Prim을 생성합니다.",
+            code: `anim = UsdSkel.Animation.Define(stage, "/Rig/Anim")
+anim.CreateJointsAttr(joints)   # 어떤 joint를 animate할지`
+          },
+          {
+            name: "anim.CreateTranslationsAttr()",
+            sig: "() → UsdAttribute",
+            brief: "이동 애니메이션",
+            desc: "각 joint의 로컬 translation 배열입니다. 타임코드별로 Set()해서 키프레임을 만듭니다.",
+            code: `from pxr import Usd, Vt, Gf
+
+trans_attr = anim.CreateTranslationsAttr()
+for frame in range(1, 25):
+    trans = Vt.Vec3fArray([Gf.Vec3f(0, frame * 0.1, 0)] * len(joints))
+    trans_attr.Set(trans, Usd.TimeCode(frame))`
+          },
+          {
+            name: "anim.CreateRotationsAttr()",
+            sig: "() → UsdAttribute",
+            brief: "회전 애니메이션",
+            desc: "각 joint의 로컬 rotation(사원수) 배열입니다.",
+            code: `rot_attr = anim.CreateRotationsAttr()
+identity_quat = Gf.Quatf(1, 0, 0, 0)
+rots = Vt.QuatfArray([identity_quat] * len(joints))
+rot_attr.Set(rots)`
+          },
+        ]
+      },
+      {
+        title: "SkelBinding — 메쉬 바인딩",
+        items: [
+          {
+            name: "UsdSkel.BindingAPI(prim).Apply()",
+            sig: "() → UsdSkelBindingAPI",
+            brief: "스켈레톤 바인딩 API 적용",
+            desc: "메쉬 Prim에 SkelBindingAPI 스키마를 적용하고 skeleton을 연결합니다.",
+            code: `binding = UsdSkel.BindingAPI.Apply(mesh_prim)
+binding.CreateSkeletonRel().AddTarget(skel.GetPath())`
+          },
+          {
+            name: "binding.CreateJointIndicesPrimvar()",
+            sig: "(constant, elementSize) → UsdGeomPrimvar",
+            brief: "joint 인덱스 primvar",
+            desc: "각 vertex가 영향받는 joint 인덱스 배열입니다. elementSize는 vertex당 영향 joint 수입니다.",
+            code: `# vertex당 4개 joint 영향
+pv = binding.CreateJointIndicesPrimvar(False, 4)
+pv.Set(Vt.IntArray([0,1,0,0, 0,2,1,0, ...]))`
+          },
+          {
+            name: "binding.CreateJointWeightsPrimvar()",
+            sig: "(constant, elementSize) → UsdGeomPrimvar",
+            brief: "joint 가중치 primvar",
+            desc: "각 vertex에 대한 joint 영향 가중치 배열입니다. 인덱스와 1:1 대응합니다.",
+            code: `pv = binding.CreateJointWeightsPrimvar(False, 4)
+pv.Set(Vt.FloatArray([1.0,0.0,0.0,0.0, 0.7,0.3,0.0,0.0, ...]))`
+          },
+        ]
+      },
+      {
+        title: "UsdSkelCache — 런타임 계산",
+        items: [
+          {
+            name: "UsdSkel.Cache()",
+            sig: "() → UsdSkelCache",
+            brief: "스켈레톤 캐시 생성",
+            desc: "Stage 탐색 시 SkelRoot와 SkelBinding 정보를 캐시합니다. Populate()로 채운 뒤 사용합니다.",
+            code: `cache = UsdSkel.Cache()
+cache.Populate(skel_root, Usd.PrimDefaultPredicate)`
+          },
+          {
+            name: "cache.GetSkelQuery(skel)",
+            sig: "(skel) → UsdSkelSkeletonQuery",
+            brief: "스켈레톤 쿼리 반환",
+            desc: "특정 Skeleton에 대한 쿼리 객체를 반환합니다. joint 행렬을 계산할 수 있습니다.",
+            code: `query = cache.GetSkelQuery(skel)
+xforms = query.ComputeJointLocalTransforms(Usd.TimeCode(10))`
+          },
+        ]
+      },
+    ]
+  },
+  // ─────────────────────────────────────────────
+  //  NEW: UsdUtils — 유틸리티
+  // ─────────────────────────────────────────────
+  {
+    tab: "UsdUtils",
+    tag: "tag-ref",
+    sections: [
+      {
+        title: "파일 처리",
+        items: [
+          {
+            name: "UsdUtils.FlattenLayerStack()",
+            sig: "(stage, tag='') → SdfLayer",
+            brief: "레이어 스택 평탄화",
+            desc: "Stage의 모든 레이어를 하나의 SdfLayer로 병합합니다. stage.Flatten()과 유사하지만 더 세밀한 옵션을 제공합니다.",
+            code: `from pxr import UsdUtils
+
+flat = UsdUtils.FlattenLayerStack(stage)
+flat.Export("/output/merged.usda")`
+          },
+          {
+            name: "UsdUtils.CreateNewUsdzPackage()",
+            sig: "(assetPath, usdzFilePath) → bool",
+            brief: "USDZ 패키지 생성",
+            desc: "USD 파일과 의존성(텍스처 등)을 하나의 .usdz 아카이브로 묶습니다.",
+            code: `from pxr import UsdUtils
+
+UsdUtils.CreateNewUsdzPackage(
+    Sdf.AssetPath("/path/to/asset.usda"),
+    "/output/asset.usdz"
+)`
+          },
+          {
+            name: "UsdUtils.ExtractExternalReferences()",
+            sig: "(filePath) → (sublayers, refs, payloads)",
+            brief: "외부 참조 추출",
+            desc: "USD 파일이 참조하는 모든 외부 파일 경로를 sublayer·reference·payload 별로 반환합니다.",
+            code: `sublayers, refs, payloads = \
+    UsdUtils.ExtractExternalReferences("/path/to/asset.usda")
+
+for ref in refs:
+    print(f"Reference: {ref}")`
+          },
+          {
+            name: "UsdUtils.ComputeAllDependencies()",
+            sig: "(assetPath) → (layers, assets, unresolvedPaths)",
+            brief: "전체 의존성 분석",
+            desc: "재귀적으로 모든 의존 파일(레이어, 텍스처 등)을 수집합니다. 퍼블리시 시 파일 복사 목록 생성에 활용합니다.",
+            code: `layers, assets, unresolved = \
+    UsdUtils.ComputeAllDependencies(
+        Sdf.AssetPath("/path/to/asset.usda")
+    )
+
+for a in assets:
+    print(f"Asset: {a}")  # 텍스처 등`
+          },
+        ]
+      },
+      {
+        title: "스테이지 유틸리티",
+        items: [
+          {
+            name: "UsdUtils.StageCache",
+            sig: "singleton",
+            brief: "글로벌 Stage 캐시",
+            desc: "프로세스 전역 Stage 캐시입니다. 같은 파일을 여러 번 열 때 중복 로드를 방지합니다.",
+            code: `from pxr import UsdUtils
+
+cache = UsdUtils.StageCache.Get()
+
+# 캐시에 Stage 추가
+id_ = cache.Insert(stage)
+
+# 캐시에서 조회
+cached = cache.Find(UsdUtils.StageCache.Id.FromLongInt(id_.ToLongInt()))`
+          },
+          {
+            name: "UsdUtils.GetDirtyLayers()",
+            sig: "(stage, includeClips=False) → [SdfLayer]",
+            brief: "미저장 레이어 목록",
+            desc: "Stage에서 아직 저장되지 않은(dirty) 레이어 목록을 반환합니다.",
+            code: `dirty = UsdUtils.GetDirtyLayers(stage)
+for layer in dirty:
+    print(f"저장 필요: {layer.identifier}")
+    layer.Save()`
+          },
+        ]
+      },
+      {
+        title: "BBox 계산",
+        items: [
+          {
+            name: "UsdGeom.BBoxCache(time, purposes)",
+            sig: "(time, purposes, ...) → BBoxCache",
+            brief: "Bounding Box 캐시",
+            desc: "여러 Prim의 BBox를 계산할 때 캐시를 공유해 성능을 높입니다. purposes 목록으로 계산 대상을 필터링합니다.",
+            code: `from pxr import UsdGeom, Usd
+
+cache = UsdGeom.BBoxCache(
+    Usd.TimeCode.Default(),
+    [UsdGeom.Tokens.default_,
+     UsdGeom.Tokens.render]
+)
+
+bbox = cache.ComputeWorldBound(prim)
+bound = bbox.GetBox()
+print(f"min: {bound.GetMin()}")
+print(f"max: {bound.GetMax()}")`
+          },
+        ]
+      },
+    ]
+  },
+  // ─────────────────────────────────────────────
+  //  NEW: Tf — 토큰 / 노티스 / 타입
+  // ─────────────────────────────────────────────
+  {
+    tab: "Tf",
+    tag: "tag-prim",
+    sections: [
+      {
+        title: "Tf.Token — 인터닝된 문자열",
+        items: [
+          {
+            name: "Tf.Token()",
+            sig: "(string) → TfToken",
+            brief: "Token 생성",
+            desc: "자주 사용하는 문자열을 인터닝(interning)하여 빠른 비교가 가능한 Token을 만듭니다. USD 내부에서 종류(kind), 목적(purpose) 등에 사용합니다.",
+            code: `from pxr import Tf
+
+tok = Tf.Token("render")
+print(tok == Tf.Token("render"))  # True (포인터 비교)`
+          },
+        ]
+      },
+      {
+        title: "Tf.Notice — 변경 알림",
+        items: [
+          {
+            name: "Tf.Notice.Register()",
+            sig: "(noticeType, callback, sender) → TfNotice.Key",
+            brief: "알림 핸들러 등록",
+            desc: "USD Stage의 변경 이벤트를 구독합니다. 반환된 key를 보관해야 구독이 유지됩니다.",
+            code: `from pxr import Tf, Usd
+
+def on_objects_changed(notice, stage):
+    for path in notice.GetChangedInfoOnlyPaths():
+        print(f"info changed: {path}")
+    for path in notice.GetResyncedPaths():
+        print(f"resynced: {path}")
+
+key = Tf.Notice.Register(
+    Usd.Notice.ObjectsChanged,
+    on_objects_changed,
+    stage
+)`
+          },
+          {
+            name: "Tf.Notice.Revoke()",
+            sig: "(key) → None",
+            brief: "알림 구독 해제",
+            desc: "Register()가 반환한 key로 구독을 취소합니다.",
+            code: `Tf.Notice.Revoke(key)`
+          },
+          {
+            name: "Usd.Notice.StageContentsChanged",
+            sig: "notice type",
+            brief: "Stage 전체 변경 알림",
+            desc: "레이어 추가/제거, prim 생성/삭제 등 Stage 구조가 바뀔 때 발생합니다.",
+            code: `def on_stage_changed(notice, stage):
+    print("Stage 구조 변경됨")
+
+key = Tf.Notice.Register(
+    Usd.Notice.StageContentsChanged,
+    on_stage_changed,
+    stage
+)`
+          },
+          {
+            name: "Usd.Notice.LayerMutingChanged",
+            sig: "notice type",
+            brief: "레이어 뮤트 변경 알림",
+            desc: "Stage에서 레이어가 mute/unmute될 때 발생합니다.",
+            code: `def on_mute(notice, stage):
+    print("뮤트된 레이어:", notice.GetMutedLayers())
+
+key = Tf.Notice.Register(
+    Usd.Notice.LayerMutingChanged,
+    on_mute, stage
+)`
+          },
+        ]
+      },
+      {
+        title: "Tf.Type — 타입 시스템",
+        items: [
+          {
+            name: "Tf.Type.FindByName()",
+            sig: "(typeName) → TfType",
+            brief: "이름으로 타입 조회",
+            desc: "USD 타입 레지스트리에서 이름으로 타입을 찾습니다.",
+            code: `from pxr import Tf
+
+t = Tf.Type.FindByName("UsdGeomMesh")
+print(t.typeName)  # "UsdGeomMesh"`
+          },
+          {
+            name: "prim.IsA()",
+            sig: "(schemaType) → bool",
+            brief: "Prim 타입 확인",
+            desc: "Prim이 특정 스키마 타입인지 확인합니다. Tf.Type 또는 Python 클래스를 전달합니다.",
+            code: `from pxr import UsdGeom
+
+if prim.IsA(UsdGeom.Mesh):
+    mesh = UsdGeom.Mesh(prim)
+    pts  = mesh.GetPointsAttr().Get()`
+          },
+          {
+            name: "prim.HasAPI()",
+            sig: "(schemaType) → bool",
+            brief: "API 스키마 적용 여부",
+            desc: "Prim에 특정 API 스키마(UsdSkelBindingAPI 등)가 적용되어 있는지 확인합니다.",
+            code: `from pxr import UsdSkel
+
+if prim.HasAPI(UsdSkel.BindingAPI):
+    binding = UsdSkel.BindingAPI(prim)
+    skel_rel = binding.GetSkeletonRel()`
+          },
+        ]
+      },
+      {
+        title: "플러그인 / 레지스트리",
+        items: [
+          {
+            name: "Plug.Registry().GetAllPlugins()",
+            sig: "() → [PlugPlugin]",
+            brief: "로드된 플러그인 목록",
+            desc: "현재 로드된 모든 USD 플러그인을 반환합니다. 스키마 등록 여부 확인에 사용합니다.",
+            code: `from pxr import Plug
+
+registry = Plug.Registry()
+for plugin in registry.GetAllPlugins():
+    print(plugin.name)`
+          },
+          {
+            name: "UsdSchemaRegistry.GetSchemaTypeName()",
+            sig: "(primDef) → Token",
+            brief: "스키마 타입 이름 조회",
+            desc: "Prim의 스키마 타입 이름을 반환합니다.",
+            code: `from pxr import Usd
+
+reg = Usd.SchemaRegistry()
+name = reg.GetSchemaTypeName(
+    Usd.SchemaRegistry.GetSchemaInfo("UsdGeomMesh")
+)`
+          },
+        ]
+      },
+    ]
+  },
+  // ─────────────────────────────────────────────
+  //  NEW: UsdLux / UsdRender — 라이팅 & 렌더
+  // ─────────────────────────────────────────────
+  {
+    tab: "Lux / Render",
+    tag: "tag-stage",
+    sections: [
+      {
+        title: "UsdLux — 라이트 타입",
+        items: [
+          {
+            name: "UsdLux.SphereLight.Define()",
+            sig: "(stage, path) → UsdLuxSphereLight",
+            brief: "구형 라이트",
+            desc: "포인트 라이트와 유사한 구형 라이트를 생성합니다. radius로 부드러운 그림자를 조절합니다.",
+            code: `from pxr import UsdLux, Gf
+
+light = UsdLux.SphereLight.Define(stage, "/Lights/Key")
+light.CreateIntensityAttr(1500.0)
+light.CreateColorAttr(Gf.Vec3f(1.0, 0.95, 0.9))
+light.CreateRadiusAttr(0.5)`
+          },
+          {
+            name: "UsdLux.RectLight.Define()",
+            sig: "(stage, path) → UsdLuxRectLight",
+            brief: "직사각형 에어리어 라이트",
+            desc: "면 광원을 생성합니다. width, height로 크기를 설정합니다.",
+            code: `rect = UsdLux.RectLight.Define(stage, "/Lights/Fill")
+rect.CreateWidthAttr(2.0)
+rect.CreateHeightAttr(1.5)
+rect.CreateIntensityAttr(800.0)`
+          },
+          {
+            name: "UsdLux.DomeLight.Define()",
+            sig: "(stage, path) → UsdLuxDomeLight",
+            brief: "돔 라이트 (HDR)",
+            desc: "환경 조명을 위한 돔 라이트를 생성합니다. textureFile에 HDR 이미지를 연결합니다.",
+            code: `dome = UsdLux.DomeLight.Define(stage, "/Lights/Dome")
+dome.CreateTextureFileAttr(Sdf.AssetPath("./hdri/sky.hdr"))
+dome.CreateIntensityAttr(1.0)`
+          },
+          {
+            name: "UsdLux.DistantLight.Define()",
+            sig: "(stage, path) → UsdLuxDistantLight",
+            brief: "방향성 라이트 (태양)",
+            desc: "무한히 먼 거리에서 오는 방향성 빛입니다. 태양광 시뮬레이션에 사용합니다.",
+            code: `sun = UsdLux.DistantLight.Define(stage, "/Lights/Sun")
+sun.CreateIntensityAttr(5.0)
+sun.CreateAngleAttr(0.53)  # 태양 각도 (도)`
+          },
+          {
+            name: "UsdLux.LightAPI(prim).Apply()",
+            sig: "(prim) → UsdLuxLightAPI",
+            brief: "기존 Prim에 LightAPI 적용",
+            desc: "기존 Prim을 라이트로 만들 때 사용합니다. USD 21.11+ 권장 방식입니다.",
+            code: `api = UsdLux.LightAPI.Apply(prim)
+api.CreateIntensityAttr(1000.0)
+api.CreateEnableColorTemperatureAttr(True)
+api.CreateColorTemperatureAttr(5500.0)   # 켈빈`
+          },
+          {
+            name: "UsdLux.ShadowAPI(prim).Apply()",
+            sig: "(prim) → UsdLuxShadowAPI",
+            brief: "그림자 설정 API",
+            desc: "라이트의 그림자 설정을 제어하는 API를 적용합니다.",
+            code: `shadow = UsdLux.ShadowAPI.Apply(light_prim)
+shadow.CreateShadowEnableAttr(True)
+shadow.CreateShadowColorAttr(Gf.Vec3f(0,0,0))
+shadow.CreateShadowFalloffAttr(0.5)`
+          },
+        ]
+      },
+      {
+        title: "UsdRender — 렌더 설정",
+        items: [
+          {
+            name: "UsdRender.Settings.Define()",
+            sig: "(stage, path) → UsdRenderSettings",
+            brief: "렌더 설정 Prim",
+            desc: "해상도, 카메라, 출력 경로 등 렌더 전역 설정을 정의합니다.",
+            code: `from pxr import UsdRender
+
+settings = UsdRender.Settings.Define(stage, "/Render/Settings")
+settings.CreateResolutionAttr(Gf.Vec2i(1920, 1080))
+settings.CreatePixelAspectRatioAttr(1.0)
+
+# 렌더할 카메라 연결
+cam = stage.GetPrimAtPath("/World/Camera")
+settings.CreateCameraRel().AddTarget(cam.GetPath())`
+          },
+          {
+            name: "UsdRender.Product.Define()",
+            sig: "(stage, path) → UsdRenderProduct",
+            brief: "렌더 출력 정의",
+            desc: "특정 AOV(beauty, depth, normal 등)의 출력 파일 경로와 형식을 정의합니다.",
+            code: `product = UsdRender.Product.Define(stage, "/Render/Beauty")
+product.CreateProductNameAttr("beauty")
+product.CreateOrderedVarsRel().AddTarget(
+    Sdf.Path("/Render/Vars/Color")
+)
+settings.CreateProductsRel().AddTarget(product.GetPath())`
+          },
+          {
+            name: "UsdRender.Var.Define()",
+            sig: "(stage, path) → UsdRenderVar",
+            brief: "렌더 변수 (AOV)",
+            desc: "출력할 렌더 변수(AOV)를 정의합니다. sourceName으로 렌더러 내부 이름을 연결합니다.",
+            code: `var = UsdRender.Var.Define(stage, "/Render/Vars/Depth")
+var.CreateDataTypeAttr(Sdf.ValueTypeNames.Float)
+var.CreateSourceNameAttr("depth")
+var.CreateSourceTypeAttr("raw")`
+          },
+        ]
+      },
+    ]
+  },
 ]
 
 function buildUI() {
